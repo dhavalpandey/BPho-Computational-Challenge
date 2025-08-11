@@ -267,3 +267,137 @@ export const convexMirrorVirtualImage = (point, R) => {
 
 	return { x: trans_X, y: trans_Y };
 };
+
+/**
+ * [NEW] Performs an anamorphic transformation on a point.
+ * Maps a point from a unit circle to a sector of a circle with radius Rf.
+ * @param {object} point - The point on the object, { x, y }, where -1 <= x,y <= 1.
+ * @param {number} Rf - The radius of the target sector.
+ * @param {number} arc_deg - The total angle of the target sector in degrees.
+ * @returns {object} The transformed point { x, y }.
+ */
+export const anamorphicTransform = (point, Rf, arc_deg) => {
+	const { x, y } = point;
+
+	// 1. Convert cartesian coordinates (x, y) to polar coordinates (r, theta)
+	const r = Math.sqrt(x ** 2 + y ** 2);
+
+	// If the point is outside the unit circle, don't draw it
+	if (r > 1) {
+		return { x: NaN, y: NaN };
+	}
+
+	const theta = Math.atan2(y, x); // Angle in radians
+
+	// 2. Map polar coordinates to the new anamorphic coordinate system
+	// The new radius (in the transformed system) is based on the original y-coordinate
+	const new_r = Rf * (1 + y);
+
+	// The new angle is based on the original x-coordinate, scaled by the arc angle
+	const arc_rad = arc_deg * (Math.PI / 180);
+	const new_theta = (Math.PI - arc_rad) / 2 + (arc_rad * (x + 1)) / 2;
+
+	// 3. Convert the new polar coordinates back to cartesian for drawing
+	const trans_X = new_r * Math.cos(new_theta);
+	const trans_Y = new_r * Math.sin(new_theta);
+
+	return { x: trans_X, y: trans_Y };
+};
+
+/**
+ * [NEW] Calculates the rainbow elevation angles based on Descartes' model.
+ * @param {number} theta_deg - Angle of incidence in degrees.
+ * @param {number} n - Refractive index of the water droplet.
+ * @returns {object} { phi_deg, primary_epsilon_deg, secondary_epsilon_deg }
+ */
+export const calculateRainbowAngles = (theta_deg, n) => {
+	const theta_rad = theta_deg * (Math.PI / 180);
+
+	// From Snell's Law: sin(theta) = n * sin(phi)
+	const sin_phi = Math.sin(theta_rad) / n;
+	if (Math.abs(sin_phi) > 1)
+		return {
+			phi_deg: NaN,
+			primary_epsilon_deg: NaN,
+			secondary_epsilon_deg: NaN,
+		};
+	const phi_rad = Math.asin(sin_phi);
+
+	// Primary rainbow elevation: ε = 4φ - 2θ
+	const primary_epsilon_rad = 4 * phi_rad - 2 * theta_rad;
+
+	// Secondary rainbow elevation: ε = π - 6φ + 2θ
+	const secondary_epsilon_rad = Math.PI - 6 * phi_rad + 2 * theta_rad;
+
+	return {
+		phi_deg: phi_rad * (180 / Math.PI),
+		primary_epsilon_deg: primary_epsilon_rad * (180 / Math.PI),
+		secondary_epsilon_deg: secondary_epsilon_rad * (180 / Math.PI),
+	};
+};
+
+/**
+ * [NEW] Finds the precise angle of incidence (θ) that causes the rainbow for a given refractive index (n).
+ * This is the angle of minimum deviation, where dε/dθ = 0.
+ * @param {number} n - Refractive index of the water droplet.
+ * @returns {object} { primary_theta_deg, secondary_theta_deg }
+ */
+export const findRainbowMinDeviation = (n) => {
+	// For primary rainbow, from dε/dθ = 0, we get cos²(θ) = (n² - 1) / 3
+	const cos2_theta_primary = (n ** 2 - 1) / 3;
+	const primary_theta_rad =
+		cos2_theta_primary > 0 ? Math.acos(Math.sqrt(cos2_theta_primary)) : NaN;
+
+	// For secondary rainbow, from dε/dθ = 0, we get cos²(θ) = (n² - 1) / 8
+	const cos2_theta_secondary = (n ** 2 - 1) / 8;
+	const secondary_theta_rad =
+		cos2_theta_secondary > 0
+			? Math.acos(Math.sqrt(cos2_theta_secondary))
+			: NaN;
+
+	return {
+		primary_theta_deg: primary_theta_rad * (180 / Math.PI),
+		secondary_theta_deg: secondary_theta_rad * (180 / Math.PI),
+	};
+};
+
+/**
+ * [NEW] Calculates the full ray path and angles for dispersion through a prism.
+ * @param {number} theta_i_deg - Angle of incidence in degrees.
+ * @param {number} alpha_deg - Prism apex angle in degrees.
+ * @param {number} n - Refractive index of the prism for a given wavelength.
+ * @returns {object} An object with angles and a flag for Total Internal Reflection (TIR).
+ */
+export const calculatePrismPath = (theta_i_deg, alpha_deg, n) => {
+	const theta_i_rad = theta_i_deg * (Math.PI / 180);
+	const alpha_rad = alpha_deg * (Math.PI / 180);
+
+	// 1. First Refraction (Air -> Glass)
+	const sin_beta = Math.sin(theta_i_rad) / n;
+	if (Math.abs(sin_beta) > 1) return { tir: true }; // Should not happen for n > 1
+	const beta_rad = Math.asin(sin_beta);
+
+	// 2. Angle at the second interface
+	const gamma_rad = alpha_rad - beta_rad;
+
+	// 3. Check for Total Internal Reflection (TIR)
+	const sin_gamma = Math.sin(gamma_rad);
+	if (n * sin_gamma > 1) {
+		return { tir: true }; // Total Internal Reflection occurs
+	}
+
+	// 4. Second Refraction (Glass -> Air)
+	const theta_t_rad = Math.asin(n * sin_gamma);
+
+	// 5. Total Deviation
+	const delta_rad = theta_i_rad + theta_t_rad - alpha_rad;
+
+	return {
+		tir: false,
+		theta_i_deg,
+		beta_deg: beta_rad * (180 / Math.PI),
+		gamma_deg: gamma_rad * (180 / Math.PI),
+		theta_t_deg: theta_t_rad * (180 / Math.PI),
+		delta_deg: delta_rad * (180 / Math.PI),
+	};
+};
