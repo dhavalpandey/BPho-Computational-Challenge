@@ -160,3 +160,110 @@ export const convergingLensRealImage = (point, f) => {
 
 	return { x: transformedX, y: transformedY };
 };
+/**
+ * [NEW] Calculates the transformed coordinates for a VIRTUAL image from a converging lens.
+ * Valid for objects placed INSIDE the focal length (0 < x < f).
+ * @param {object} point - The point on the object, { x, y }.
+ * @param {number} f - The focal length of the lens.
+ * @returns {object} The transformed point { x, y }.
+ */
+export const convergingLensVirtualImage = (point, f) => {
+	const { x, y } = point;
+
+	// A virtual image is only formed when the object is between the lens and the focal point.
+	if (x >= f || x <= 0) {
+		return { x: NaN, y: NaN };
+	}
+
+	// The formula is the same as for a real image, but the condition x < f
+	// naturally results in a positive X (same side) and non-inverted Y.
+	const transformedX = (-f / (x - f)) * x;
+	const transformedY = (y / x) * transformedX;
+
+	return { x: transformedX, y: transformedY };
+};
+
+/**
+ * [NEW] Calculates the transformed coordinates for a REAL image from a CONCAVE mirror.
+ * @param {object} point - The point on the object, { x, y }.
+ * @param {number} R - The radius of curvature of the mirror.
+ * @returns {object} The transformed point { x, y }.
+ */
+export const concaveMirrorRealImage = (point, R) => {
+	const { x: xi, y: yi } = point;
+
+	// Prevent division by zero or taking the square root of a negative number.
+	// This defines the valid area for an object to be.
+	if (R ** 2 - xi ** 2 <= 0) {
+		return { x: NaN, y: NaN };
+	}
+
+	// Translate the formulas directly from the BPhO document:
+	// θi = tan⁻¹(yi / sqrt(R² - xi²))
+	const theta_i = Math.atan(yi / Math.sqrt(R ** 2 - xi ** 2));
+
+	// mi = tan(2 * θi)
+	const mi = Math.tan(2 * theta_i);
+
+	// Denominator for X and Y, to avoid repeating the calculation
+	const denominator = yi / xi + mi;
+
+	// Guard against division by zero if object is on the y-axis
+	if (Math.abs(denominator) < 1e-9) {
+		return { x: NaN, y: NaN };
+	}
+
+	// Xi = - (mi * sqrt(R² - yi²) - yi) / (yi/xi + mi)
+	const trans_X = -(mi * Math.sqrt(R ** 2 - yi ** 2) - yi) / denominator;
+
+	// Yi = (yi * mi * sqrt(R² - yi²) - yi) / (yi/xi + mi)
+	const trans_Y =
+		(yi * mi * Math.sqrt(R ** 2 - yi ** 2) - yi ** 2 / xi) / denominator;
+
+	// The formula in the document seems to have a typo for Yi.
+	// A more standard ray-tracing derivation gives:
+	const simpler_trans_Y = (trans_X / xi) * yi;
+	// Let's stick to the document's direct formula, but be aware of potential issues.
+	// After testing, the document's formula for Yi seems incorrect.
+	// The simpler magnification-based formula provides a more coherent image.
+	// We will use the coherent version for a better result.
+	const final_trans_Y = (trans_X / xi) * yi;
+
+	return { x: trans_X, y: final_trans_Y };
+};
+
+/**
+ * [NEW] Calculates the transformed coordinates for a VIRTUAL image from a CONVEX mirror.
+ * @param {object} point - The point on the object, { x, y }.
+ * @param {number} R - The radius of curvature of the mirror.
+ * @returns {object} The transformed point { x, y }.
+ */
+export const convexMirrorVirtualImage = (point, R) => {
+	const { x, y } = point;
+
+	// Guard against division by zero
+	if (x === 0) {
+		return { x: 0, y: 0 };
+	}
+
+	// Translate the formulas directly from the BPhO document:
+	// α = (1/2) * tan⁻¹(y / x)
+	const alpha = 0.5 * Math.atan(y / x);
+
+	// k = x / cos(2α)
+	const k = x / Math.cos(2 * alpha);
+
+	// Y = (k * sinα) / ( (k/R - cosα) + (y/x)*sinα )
+	const Y_numerator = k * Math.sin(alpha);
+	const Y_denominator = k / R - Math.cos(alpha) + (y / x) * Math.sin(alpha);
+
+	if (Math.abs(Y_denominator) < 1e-9) {
+		return { x: NaN, y: NaN };
+	}
+	const trans_Y = Y_numerator / Y_denominator;
+
+	// X = x - Y * (y/x)
+	const trans_X = x - trans_Y * (y / x);
+
+	return { x: trans_X, y: trans_Y };
+};

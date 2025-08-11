@@ -68,15 +68,8 @@ const ImageTransformViewer = ({
 		ctx.setLineDash([]);
 
 		// --- Draw Mirror/Lens ---
-		if (mirror) {
-			ctx.strokeStyle = theme.primary;
-			ctx.lineWidth = 3;
-			const mirrorStart = mirror.start(scale, originX, originY);
-			const mirrorEnd = mirror.end(scale, originX, originY);
-			ctx.beginPath();
-			ctx.moveTo(mirrorStart.x, mirrorStart.y);
-			ctx.lineTo(mirrorEnd.x, mirrorEnd.y);
-			ctx.stroke();
+		if (mirror && mirror.draw) {
+			mirror.draw(ctx, scale, originX, originY);
 		}
 
 		const { x: objX, y: objY } = objectPosition;

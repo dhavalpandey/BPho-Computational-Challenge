@@ -15,6 +15,9 @@ const Task3 = lazy(() => import("./pages/Task3")); // <-- ADD THIS LINE
 const Task4 = lazy(() => import("./pages/Task4")); // <-- ADD THIS LINE
 const Task5 = lazy(() => import("./pages/Task5")); // <-- ADD THIS LINE
 const Task6 = lazy(() => import("./pages/Task6")); // <-- ADD THIS LINE
+const Task7 = lazy(() => import("./pages/Task7")); // <-- ADD THIS LINE
+const Task8 = lazy(() => import("./pages/Task8")); // <-- ADD THIS LINE
+const Task9 = lazy(() => import("./pages/Task9")); // <-- ADD THIS LINE
 
 const AppContainer = styled.div`
 	width: 100vw;
@@ -114,6 +117,31 @@ function App() {
 									element={
 										<TaskWrapper>
 											<Task6 />
+										</TaskWrapper>
+									}
+								/>{" "}
+								{/* <-- ADD THIS LINE */}
+								<Route
+									path="/task7"
+									element={
+										<TaskWrapper>
+											<Task7 />
+										</TaskWrapper>
+									}
+								/>{" "}
+								<Route
+									path="/task8"
+									element={
+										<TaskWrapper>
+											<Task8 />
+										</TaskWrapper>
+									}
+								/>{" "}
+								<Route
+									path="/task9"
+									element={
+										<TaskWrapper>
+											<Task9 />
 										</TaskWrapper>
 									}
 								/>{" "}
