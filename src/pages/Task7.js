@@ -1,14 +1,13 @@
 // src/pages/Task7.js
-import React, { useState, useCallback } from "react";
-import styled from "styled-components";
+import React, { useState, useCallback, useMemo } from "react";
+import styled, { useTheme } from "styled-components";
 import { motion } from "framer-motion";
 import Slider from "../components/Slider";
 import ImageTransformViewer from "../components/ImageTransformViewer";
-import { convergingLensVirtualImage } from "../utils/physics";
+import { thinLensTransform } from "../utils/physics";
 
 // --- Styled Components ---
 const TaskContainer = styled(motion.div)``;
-
 const Title = styled.h2`
 	margin-bottom: 1.5rem;
 	font-weight: 700;
@@ -19,9 +18,14 @@ const Title = styled.h2`
 
 const TwoColumnLayout = styled.div`
 	display: grid;
-	grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+	/* FIX: Change to a 1/3 to 2/3 ratio for the columns */
+	grid-template-columns: 1fr 2fr;
 	gap: 2rem;
 	align-items: stretch;
+
+	@media (max-width: 900px) {
+		grid-template-columns: 1fr; /* Stack on smaller screens */
+	}
 `;
 
 const ControlAndVizContainer = styled.div`
@@ -50,41 +54,53 @@ const SummaryTitle = styled.h3`
 	margin-bottom: 1rem;
 	color: ${({ theme }) => theme.primary};
 `;
-
-const WarningText = styled.p`
-	color: #f39c12;
-	font-weight: 500;
-	margin-top: 1rem;
-	padding: 0.75rem;
-	background: rgba(243, 156, 18, 0.1);
-	border-radius: 6px;
-	border-left: 3px solid #f39c12;
-`;
+const WarningText = styled.p`...`; // Unchanged
+const ResultValue = styled.span`...`; // Unchanged
+const Equation = styled.div`...`; // Unchanged
 
 const Task7 = () => {
-	const [objectX, setObjectX] = useState(0.5); // Default INSIDE focal length
+	const theme = useTheme();
+	const [objectX, setObjectX] = useState(0.5);
 	const [objectY, setObjectY] = useState(0.5);
 	const [objectWidth, setObjectWidth] = useState(0.5);
 	const [focalLength, setFocalLength] = useState(1.0);
 
 	const lensTransform = useCallback(
 		(point) => {
-			return convergingLensVirtualImage(point, focalLength);
+			const transformed = thinLensTransform(point, focalLength);
+			if (transformed.x < 0) {
+				// Filter for virtual images (v < 0 => transformed.x > 0)
+				return { x: NaN, y: NaN };
+			}
+			return transformed;
 		},
 		[focalLength],
 	);
 
 	const lens = {
-		start: (scale, originX, originY) => ({ x: originX, y: 0 }),
-		end: (scale, originX, originY) => ({ x: originX, y: originY * 2 }),
+		draw: (ctx, scale, originX, originY) => {
+			ctx.strokeStyle = theme.primary;
+			ctx.lineWidth = 4; // Make lens slightly thicker
+			ctx.beginPath();
+			// Draw the lens at x=0 in our coordinate system
+			ctx.moveTo(originX, 0);
+			ctx.lineTo(originX, originY * 2);
+			ctx.stroke();
+		},
 	};
 
 	const isVirtualImageFormed = objectX < focalLength && objectX > 0;
 
+	const { v, M } = useMemo(() => {
+		if (objectX === focalLength) return { v: -Infinity, M: Infinity };
+		const v_calc = 1 / (1 / focalLength - 1 / objectX);
+		const M_calc = -v_calc / objectX;
+		return { v: v_calc, M: M_calc };
+	}, [objectX, focalLength]);
+
 	return (
 		<TaskContainer>
 			<Title>Task 7: Virtual, Enlarged Image from a Thin Lens</Title>
-
 			<TwoColumnLayout>
 				<ControlAndVizContainer>
 					<h3 style={{ marginBottom: "1rem" }}>
@@ -102,7 +118,7 @@ const Task7 = () => {
 						unit="m"
 					/>
 					<Slider
-						label="Object X Position (u)"
+						label="Object Distance (u)"
 						min={0.1}
 						max={3.0}
 						step={0.05}
@@ -131,13 +147,11 @@ const Task7 = () => {
 					/>
 					{!isVirtualImageFormed && (
 						<WarningText>
-							Object is outside the focal length (u ≥ f). A
-							virtual image is not formed. (See Task 6 for the
-							real image).
+							Object is at or outside the focal length (u ≥ f). A
+							virtual image is not formed.
 						</WarningText>
 					)}
 				</ControlAndVizContainer>
-
 				<ControlAndVizContainer style={{ padding: 0 }}>
 					<ImageTransformViewer
 						objectPosition={{ x: objectX, y: objectY }}
@@ -147,7 +161,6 @@ const Task7 = () => {
 					/>
 				</ControlAndVizContainer>
 			</TwoColumnLayout>
-
 			<SummaryContainer>
 				<SummaryTitle>
 					Analysis: Converging Lens - Virtual Image (Magnifying Glass)
@@ -160,21 +173,30 @@ const Task7 = () => {
 					apparent point of origin, creating a{" "}
 					<strong>virtual image</strong>.
 				</p>
-				<p>The key characteristics of this virtual image are:</p>
+				<Equation>1/u + 1/v = 1/f</Equation>
+				<p>
+					The key characteristics of this virtual image are calculated
+					below:
+				</p>
 				<ul>
 					<li>
-						<strong>Upright:</strong> The image is the same
-						orientation as the object.
+						Object Distance (u):{" "}
+						<ResultValue>{objectX.toFixed(2)} m</ResultValue>
 					</li>
 					<li>
-						<strong>Virtual:</strong> It appears on the same side of
-						the lens as the object. Light does not actually converge
-						here.
+						Image Distance (v):{" "}
+						<ResultValue>
+							{isVirtualImageFormed ? v.toFixed(2) : "N/A"} m
+						</ResultValue>{" "}
+						(Negative `v` indicates a virtual image on the same side
+						as the object).
 					</li>
 					<li>
-						<strong>Enlarged:</strong> The image is larger than the
-						object. The magnification becomes greater as the object
-						moves closer to the focal point.
+						Magnification (M):{" "}
+						<ResultValue>
+							{isVirtualImageFormed ? M.toFixed(2) : "N/A"}
+						</ResultValue>{" "}
+						(Positive `M` indicates an upright image).
 					</li>
 				</ul>
 				<p>

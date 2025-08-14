@@ -14,11 +14,10 @@ import {
 } from "recharts";
 import { motion } from "framer-motion";
 import Slider from "../components/Slider";
-import { findRefractionPoint } from "../utils/physics"; // <-- Import the new function
+import { findRefractionPoint } from "../utils/physics";
 
-// --- Styled Components --- (Identical to before)
+// --- Styled Components ---
 const TaskContainer = styled(motion.div)``;
-
 const Title = styled.h2`
 	margin-bottom: 1.5rem;
 	font-weight: 700;
@@ -26,14 +25,12 @@ const Title = styled.h2`
 	border-left: 4px solid ${({ theme }) => theme.primary};
 	padding-left: 1rem;
 `;
-
 const TwoColumnLayout = styled.div`
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
 	gap: 2rem;
 	align-items: stretch;
 `;
-
 const ControlAndVizContainer = styled.div`
 	background: ${({ theme }) => theme.accent};
 	border: 1px solid ${({ theme }) => theme.line};
@@ -43,14 +40,12 @@ const ControlAndVizContainer = styled.div`
 	display: flex;
 	flex-direction: column;
 `;
-
 const SVGContainer = styled.div`
 	width: 100%;
 	flex-grow: 1;
 	min-height: 250px;
 	margin-top: 1rem;
 `;
-
 const SummaryContainer = styled.div`
 	grid-column: 1 / -1;
 	background: ${({ theme }) => theme.accent};
@@ -61,12 +56,10 @@ const SummaryContainer = styled.div`
 	margin-top: 2rem;
 	font-size: 1rem;
 `;
-
 const SummaryTitle = styled.h3`
 	margin-bottom: 1rem;
 	color: ${({ theme }) => theme.primary};
 `;
-
 const ResultValue = styled.span`
 	font-weight: 700;
 	color: ${({ theme }) => theme.text};
@@ -75,7 +68,6 @@ const ResultValue = styled.span`
 	border-radius: 4px;
 	font-family: "Courier New", Courier, monospace;
 `;
-
 const Equation = styled.div`
 	margin: 1rem 0;
 	padding: 1rem;
@@ -84,8 +76,11 @@ const Equation = styled.div`
 	text-align: center;
 	font-family: "Courier New", Courier, monospace;
 	font-size: 1.1rem;
+	white-space: nowrap;
+	overflow-x: auto;
 `;
 
+// --- Task 4 Component ---
 const Task4 = () => {
 	const theme = useTheme();
 	const [L, setL] = useState(2);
@@ -94,50 +89,55 @@ const Task4 = () => {
 	const [n1, setN1] = useState(1.0);
 	const [n2, setN2] = useState(1.33);
 
-	const { chartData, minTime, minX, snellLeft, snellRight } = useMemo(() => {
-		const SPEED_OF_LIGHT = 299792458;
-
-		// STEP 1: Calculate the PRECISE minimum x using the root-finding algorithm
+	const {
+		chartData,
+		minTime,
+		minX,
+		snellLeft,
+		snellRight,
+		theta1_deg,
+		theta2_deg,
+	} = useMemo(() => {
+		const SPEED_OF_LIGHT_VACUUM = 299792458;
 		const preciseMinX = findRefractionPoint(L, y1, y2, n1, n2);
 
-		// STEP 2: Calculate the true minimum time using this precise x
 		const dist1_min = Math.sqrt(preciseMinX ** 2 + y1 ** 2);
 		const dist2_min = Math.sqrt((L - preciseMinX) ** 2 + y2 ** 2);
 		const preciseMinTime =
-			(n1 * dist1_min + n2 * dist2_min) / SPEED_OF_LIGHT;
+			(n1 * dist1_min + n2 * dist2_min) / SPEED_OF_LIGHT_VACUUM;
 
-		// STEP 3: Generate the data for the visual chart plot
 		const data = Array.from({ length: 201 }, (_, i) => {
 			const x = (i / 200) * L;
 			const dist1 = Math.sqrt(x ** 2 + y1 ** 2);
 			const dist2 = Math.sqrt((L - x) ** 2 + y2 ** 2);
-			const time = (n1 * dist1 + n2 * dist2) / SPEED_OF_LIGHT;
-			return { x, time: time * 1e9 }; // Time in nanoseconds
+			const time = (n1 * dist1 + n2 * dist2) / SPEED_OF_LIGHT_VACUUM;
+			return { x, time: time * 1e9 };
 		});
 
-		// STEP 4: Calculate Snell's Law values at the PRECISE minimum for verification
-		const theta1_rad = Math.atan2(preciseMinX, y1);
-		const theta2_rad = Math.atan2(L - preciseMinX, y2);
-		const snellLeftVal = n1 * Math.sin(theta1_rad);
-		const snellRightVal = n2 * Math.sin(theta2_rad);
+		const t1_rad = Math.atan2(preciseMinX, y1);
+		const t2_rad = Math.atan2(L - preciseMinX, y2);
 
 		return {
 			chartData: data,
 			minTime: preciseMinTime * 1e9,
 			minX: preciseMinX,
-			snellLeft: snellLeftVal,
-			snellRight: snellRightVal,
+			snellLeft: n1 * Math.sin(t1_rad),
+			snellRight: n2 * Math.sin(t2_rad),
+			theta1_deg: (t1_rad * 180) / Math.PI,
+			theta2_deg: (t2_rad * 180) / Math.PI,
 		};
 	}, [L, y1, y2, n1, n2]);
 
 	return (
 		<TaskContainer>
 			<Title>Task 4: Fermat's Principle and the Law of Refraction</Title>
-
 			<TwoColumnLayout>
 				<ControlAndVizContainer>
+					<h3 style={{ marginBottom: "1rem" }}>
+						Experiment Controls
+					</h3>
 					<Slider
-						label="Refractive Index n₁ (Top)"
+						label={`Refractive Index n₁ (Top)`}
 						min={1.0}
 						max={2.5}
 						step={0.01}
@@ -145,7 +145,7 @@ const Task4 = () => {
 						onChange={(e) => setN1(parseFloat(e.target.value))}
 					/>
 					<Slider
-						label="Refractive Index n₂ (Bottom)"
+						label={`Refractive Index n₂ (Bottom)`}
 						min={1.0}
 						max={2.5}
 						step={0.01}
@@ -179,7 +179,6 @@ const Task4 = () => {
 						onChange={(e) => setY2(parseFloat(e.target.value))}
 						unit="m"
 					/>
-
 					<SVGContainer>
 						<svg
 							width="100%"
@@ -247,17 +246,30 @@ const Task4 = () => {
 							/>
 							<line
 								x1={minX}
-								y1={y1 * 0.3}
+								y1={y1 * 0.4}
 								x2={minX}
-								y2={-y2 * 0.3}
+								y2={-y2 * 0.4}
 								stroke={theme.text}
 								strokeWidth="0.02"
 								strokeDasharray="0.05"
 							/>
+							<text
+								x={minX + 0.1}
+								y={y1 * 0.3}
+								fill={theme.text}
+								fontSize="0.15">
+								θ₁: {theta1_deg.toFixed(1)}°
+							</text>
+							<text
+								x={minX + 0.1}
+								y={-y2 * 0.3}
+								fill={theme.text}
+								fontSize="0.15">
+								θ₂: {theta2_deg.toFixed(1)}°
+							</text>
 						</svg>
 					</SVGContainer>
 				</ControlAndVizContainer>
-
 				<ControlAndVizContainer>
 					<ResponsiveContainer width="100%" height="100%">
 						<LineChart
@@ -265,8 +277,8 @@ const Task4 = () => {
 							margin={{
 								top: 20,
 								right: 30,
-								left: 30,
-								bottom: 30,
+								left: 40,
+								bottom: 25,
 							}}>
 							<CartesianGrid
 								strokeDasharray="3 3"
@@ -296,7 +308,7 @@ const Task4 = () => {
 									value: "Travel Time (ns)",
 									angle: -90,
 									position: "insideLeft",
-									offset: -20,
+									offset: -25,
 									fill: theme.text,
 								}}
 								tickFormatter={(t) => t.toFixed(1)}
@@ -321,7 +333,7 @@ const Task4 = () => {
 								y={minTime}
 								r={8}
 								fill="#ff7300"
-								stroke="white">
+								stroke={theme.accent}>
 								<RechartsLabel
 									value="Minimum Time"
 									position="top"
@@ -333,37 +345,41 @@ const Task4 = () => {
 					</ResponsiveContainer>
 				</ControlAndVizContainer>
 			</TwoColumnLayout>
-
 			<SummaryContainer>
 				<SummaryTitle>Analysis: Verifying Snell's Law</SummaryTitle>
 				<p>
-					This simulation demonstrates that Snell's Law of Refraction
-					is a direct result of light following the path of least
-					time. The chart shows the travel time for a ray moving from
-					medium 1 (n₁) to medium 2 (n₂) via a crossing point 'x' on
-					the boundary.
-				</p>
-				<p>
-					Using a precise numerical solver, the path of minimum time
-					is found at{" "}
-					<ResultValue>x = {minX.toFixed(4)} m</ResultValue>.
-				</p>
-				<p>
-					At this specific point, we can check if Snell's Law (
-					<strong>n₁ sin(θ₁) = n₂ sin(θ₂)</strong>) holds true:
+					Fermat's Principle of Least Time states that light will
+					always travel the path that takes the minimum amount of
+					time. When light crosses a boundary between two media with
+					different refractive indices (and therefore different speeds
+					of light), the "fastest" path is not a straight line. The
+					light bends to spend less time in the "slower" (higher
+					refractive index) medium.
 				</p>
 				<Equation>
-					n₁ sin(θ₁) ={" "}
-					<ResultValue>{snellLeft.toFixed(8)}</ResultValue>{" "}
-					&nbsp;&nbsp; | &nbsp;&nbsp; n₂ sin(θ₂) ={" "}
-					<ResultValue>{snellRight.toFixed(8)}</ResultValue>
+					Time(x) = [n₁√ (x² + y₁²) + n₂√ ((L-x)² + y₂²)] / c
 				</Equation>
 				<p>
-					The two values are now equal to a high degree of precision,
-					confirming that the path of minimum time is precisely the
-					one that obeys the Law of Refraction. Adjust the sliders to
-					see how the optimal path changes while this equality always
-					holds.
+					The graph shows the travel time calculated with the formula
+					above for every possible crossing point 'x'. The curve is
+					now asymmetrical, with a minimum found by our numerical
+					solver at <ResultValue>x = {minX.toFixed(4)} m</ResultValue>
+					.
+				</p>
+				<p>
+					At this specific point of minimum time, we can verify
+					Snell's Law of Refraction:
+				</p>
+				<Equation>
+					n₁ sin(θ₁) = {snellLeft.toFixed(8)} &nbsp;&nbsp; |
+					&nbsp;&nbsp; n₂ sin(θ₂) = {snellRight.toFixed(8)}
+				</Equation>
+				<p>
+					The two sides of the equation are equal to a high degree of
+					precision. This demonstrates that Snell's Law is a direct
+					mathematical consequence of Fermat's Principle. Change the
+					sliders to see how the optimal path changes while this
+					equality always holds.
 				</p>
 			</SummaryContainer>
 		</TaskContainer>

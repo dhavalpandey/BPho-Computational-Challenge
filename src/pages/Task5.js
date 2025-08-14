@@ -1,6 +1,6 @@
 // src/pages/Task5.js
-import React, { useState } from "react";
-import styled from "styled-components";
+import React, { useState, useCallback } from "react";
+import styled, { useTheme } from "styled-components";
 import { motion } from "framer-motion";
 import Slider from "../components/Slider";
 import ImageTransformViewer from "../components/ImageTransformViewer";
@@ -29,7 +29,9 @@ const ControlAndVizContainer = styled.div`
 	border-radius: 12px;
 	padding: 2rem;
 	box-shadow: 0 4px 12px ${({ theme }) => theme.shadow};
-	min-height: 500px; // Ensure containers have a minimum height
+	min-height: 500px;
+	display: flex;
+	flex-direction: column;
 `;
 
 const SummaryContainer = styled.div`
@@ -48,22 +50,49 @@ const SummaryTitle = styled.h3`
 	color: ${({ theme }) => theme.primary};
 `;
 
+const ResultValue = styled.span`
+	font-weight: 700;
+	color: ${({ theme }) => theme.text};
+	background-color: ${({ theme }) => theme.line};
+	padding: 2px 6px;
+	border-radius: 4px;
+	font-family: "Courier New", Courier, monospace;
+`;
+
+const Equation = styled.div`
+	margin: 1rem 0;
+	padding: 1rem;
+	background: ${({ theme }) => theme.body};
+	border-radius: 6px;
+	text-align: center;
+	font-family: "Courier New", Courier, monospace;
+	font-size: 1.1rem;
+`;
+
 const Task5 = () => {
+	const theme = useTheme();
 	const [objectX, setObjectX] = useState(0.5);
 	const [objectY, setObjectY] = useState(0.5);
 	const [objectWidth, setObjectWidth] = useState(0.5);
 
-	const planeMirrorTransform = ({ x, y }) => {
-		return {
-			x: -x,
-			y: y,
-		};
-	};
+	const planeMirrorTransform = useCallback(
+		({ x, y }) => ({ x: -x, y: y }),
+		[],
+	);
 
 	const mirror = {
-		start: (scale, originX, originY) => ({ x: originX, y: 0 }),
-		end: (scale, originX, originY) => ({ x: originX, y: originY * 2 }),
+		draw: (ctx, scale, originX, originY) => {
+			ctx.strokeStyle = theme.primary;
+			ctx.lineWidth = 3;
+			ctx.beginPath();
+			ctx.moveTo(originX, 0);
+			ctx.lineTo(originX, originY * 2);
+			ctx.stroke();
+		},
 	};
+
+	const virtualImageX = -objectX;
+	const magnification = 1;
 
 	return (
 		<TaskContainer>
@@ -79,6 +108,7 @@ const Task5 = () => {
 						step={0.01}
 						value={objectX}
 						onChange={(e) => setObjectX(parseFloat(e.target.value))}
+						unit="m"
 					/>
 					<Slider
 						label="Object Y Position"
@@ -87,6 +117,7 @@ const Task5 = () => {
 						step={0.01}
 						value={objectY}
 						onChange={(e) => setObjectY(parseFloat(e.target.value))}
+						unit="m"
 					/>
 					<Slider
 						label="Object Size"
@@ -97,6 +128,7 @@ const Task5 = () => {
 						onChange={(e) =>
 							setObjectWidth(parseFloat(e.target.value))
 						}
+						unit="m"
 					/>
 				</ControlAndVizContainer>
 
@@ -114,22 +146,43 @@ const Task5 = () => {
 				<SummaryTitle>Analysis: Plane Mirror Reflection</SummaryTitle>
 				<p>
 					This simulation demonstrates how a virtual image is formed
-					by a plane mirror. The viewer on the right shows a real
-					object (the cat) and its corresponding virtual image, which
-					appears to be behind the mirror.
+					by a plane mirror. A virtual image is an image that appears
+					at a location where light does not actually converge. The
+					brain perceives an image at this location because it assumes
+					that light rays travel in straight lines.
 				</p>
+				<Equation>x' = -x &nbsp;&nbsp; | &nbsp;&nbsp; y' = y</Equation>
 				<p>
 					The transformation is computationally simple: for any point
-					(x, y) on the object, the corresponding point on the virtual
-					image is (-x, y). The image is the same size as the object
-					and appears to be the same distance behind the mirror as the
-					object is in front of it.
+					(x, y) on the object, the corresponding image point (x', y')
+					has an inverted x-coordinate. This leads to several key
+					properties:
 				</p>
-				<p>
-					Use the sliders to move and resize the object and observe
-					how the virtual image behaves exactly as you would expect
-					from a real-world mirror.
-				</p>
+				<ul>
+					<li>
+						The image is **virtual** (it appears behind the mirror).
+					</li>
+					<li>The image is **upright** (not inverted vertically).</li>
+					<li>
+						The image is **laterally inverted** (left-to-right is
+						flipped).
+					</li>
+					<li>
+						The image distance is equal to the object distance: |x'|
+						= |x|. Currently, Object Distance ={" "}
+						<ResultValue>{objectX.toFixed(2)} m</ResultValue> and
+						Image Distance ={" "}
+						<ResultValue>
+							{Math.abs(virtualImageX).toFixed(2)} m
+						</ResultValue>
+						.
+					</li>
+					<li>
+						The magnification is exactly{" "}
+						<ResultValue>+{magnification.toFixed(1)}</ResultValue>,
+						meaning the image is the same size as the object.
+					</li>
+				</ul>
 			</SummaryContainer>
 		</TaskContainer>
 	);

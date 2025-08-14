@@ -1,5 +1,5 @@
 // src/pages/Task2.js
-import React from "react";
+import React, { useMemo } from "react";
 import styled, { useTheme } from "styled-components";
 import {
 	ComposedChart,
@@ -64,34 +64,45 @@ const ResultValue = styled.span`
 const Task2 = () => {
 	const theme = useTheme();
 
-	// --- Raw Data ---
-	const rawData = [
-		{ u: 20, v: 65.5 },
-		{ u: 25, v: 40 },
-		{ u: 30, v: 31 },
-		{ u: 35, v: 27 },
-		{ u: 40, v: 25 },
-		{ u: 45, v: 23.1 },
-		{ u: 50, v: 21.5 },
-		{ u: 55, v: 20.5 },
-	];
-
-	// --- Calculations ---
-	const experimentalDataPoints = rawData.map((d) => ({
-		x: 1 / d.u,
-		y: 1 / d.v,
-	}));
-	const { slope, intercept, rSquared, predict } = linearRegression(
+	const {
 		experimentalDataPoints,
-	);
-	const focalLength = 1 / intercept;
+		slope,
+		intercept,
+		rSquared,
+		focalLength,
+		lineDomainData,
+	} = useMemo(() => {
+		const rawData = [
+			{ u: 20, v: 65.5 },
+			{ u: 25, v: 40 },
+			{ u: 30, v: 31 },
+			{ u: 35, v: 27 },
+			{ u: 40, v: 25 },
+			{ u: 45, v: 23.1 },
+			{ u: 50, v: 21.5 },
+			{ u: 55, v: 20.5 },
+		];
 
-	// --- Data for Charting ---
-	// Create a smooth line by defining its start and end points across the full chart domain
-	const lineDomainData = [
-		{ x: 0, y: predict(0) },
-		{ x: 0.055, y: predict(0.055) },
-	];
+		const points = rawData.map((d) => ({ x: 1 / d.u, y: 1 / d.v }));
+		const { slope, intercept, rSquared, predict } =
+			linearRegression(points);
+		const f = 1 / intercept;
+		const lineData = [
+			{ x: 0, y: predict(0) },
+			{ x: 0.055, y: predict(0.055) },
+		];
+
+		return {
+			experimentalDataPoints: points,
+			slope,
+			intercept,
+			rSquared,
+			focalLength: f,
+			lineDomainData: lineData,
+		};
+	}, []);
+
+	const percentageError = Math.abs((slope - -1) / -1) * 100;
 
 	return (
 		<TaskContainer>
@@ -103,8 +114,8 @@ const Task2 = () => {
 							margin={{
 								top: 20,
 								right: 30,
-								left: 30,
-								bottom: 30,
+								left: 40,
+								bottom: 25,
 							}}>
 							<CartesianGrid
 								strokeDasharray="3 3"
@@ -129,13 +140,13 @@ const Task2 = () => {
 								dataKey="y"
 								name="1/v"
 								unit=" cm⁻¹"
-								domain={[0, 0.055]}
+								domain={[0, 0.07]}
 								stroke={theme.text}
 								label={{
 									value: "1/v (cm⁻¹)",
 									angle: -90,
 									position: "insideLeft",
-									offset: -20,
+									offset: -25,
 									fill: theme.text,
 								}}
 							/>
@@ -146,8 +157,9 @@ const Task2 = () => {
 									border: `1px solid ${theme.line}`,
 									borderRadius: "8px",
 								}}
+								formatter={(value) => value.toFixed(4)}
 							/>
-							<Legend wrapperStyle={{ paddingTop: "20px" }} />
+							<Legend wrapperStyle={{ paddingTop: "25px" }} />
 							<Scatter
 								name="Experimental Data"
 								data={experimentalDataPoints}
@@ -171,40 +183,35 @@ const Task2 = () => {
 			<SummaryContainer>
 				<SummaryTitle>Analysis and Results</SummaryTitle>
 				<p>
-					The thin lens equation is <strong>1/u + 1/v = 1/f</strong>,
-					where 'u' is object distance, 'v' is image distance, and 'f'
-					is focal length. This can be rearranged into the linear form{" "}
-					<strong>1/v = (-1) * (1/u) + (1/f)</strong>, which matches
-					the equation of a straight line, y = mx + c.
+					The thin lens equation, <strong>1/u + 1/v = 1/f</strong>, is
+					a cornerstone of geometric optics, relating an object's
+					distance (u) and image distance (v) to a lens's focal length
+					(f). By rearranging it to the linear form{" "}
+					<strong>(1/v) = -1 * (1/u) + (1/f)</strong>, we can verify
+					it experimentally by plotting 1/v versus 1/u. If the
+					equation holds, the data should form a straight line.
 				</p>
 				<br />
 				<p>
-					This graph plots the experimental data of 1/v against 1/u. A
-					line of best fit is calculated using linear regression.
+					<strong>Veracity Check:</strong> The theoretical slope of
+					this line is exactly <strong>-1</strong>. Our linear
+					regression on the experimental data yields a slope of{" "}
+					<ResultValue>{slope.toFixed(4)}</ResultValue>, a percentage
+					error of just{" "}
+					<ResultValue>{percentageError.toFixed(2)}%</ResultValue>.
+					The R² value of{" "}
+					<ResultValue>{rSquared.toFixed(4)}</ResultValue> (where 1.0
+					is a perfect fit) confirms the data's strong linear
+					relationship. This provides excellent evidence for the
+					veracity of the thin lens equation.
 				</p>
-				<ul>
-					<li>
-						The <strong>slope (m)</strong> of the line should be
-						close to -1. Our calculated slope is{" "}
-						<ResultValue>{slope.toFixed(4)}</ResultValue>.
-					</li>
-					<li>
-						The <strong>y-intercept (c)</strong> gives us 1/f. Our
-						calculated intercept is{" "}
-						<ResultValue>{intercept.toFixed(4)}</ResultValue>.
-					</li>
-					<li>
-						The <strong>R² value</strong> (coefficient of
-						determination) indicates how well the line fits the data
-						(1 is a perfect fit). Our R² is{" "}
-						<ResultValue>{rSquared.toFixed(4)}</ResultValue>,
-						showing a very strong correlation.
-					</li>
-				</ul>
 				<br />
 				<p>
-					From the y-intercept, the focal length of the lens is
-					calculated to be{" "}
+					<strong>Focal Length Determination:</strong> The y-intercept
+					of the best-fit line is theoretically equal to 1/f. From our
+					intercept of{" "}
+					<ResultValue>{intercept.toFixed(4)}</ResultValue>, we
+					calculate the focal length of the lens to be{" "}
 					<strong>
 						f = 1 / {intercept.toFixed(4)} ≈{" "}
 						<ResultValue>{focalLength.toFixed(2)} cm</ResultValue>

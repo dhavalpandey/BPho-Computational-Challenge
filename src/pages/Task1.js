@@ -1,5 +1,5 @@
 // src/pages/Task1.js
-import React from "react";
+import React, { useMemo } from "react";
 import styled, { useTheme } from "styled-components";
 import {
 	LineChart,
@@ -56,28 +56,47 @@ const SummaryTitle = styled.h3`
 	color: ${({ theme }) => theme.primary};
 `;
 
+const ResultValue = styled.span`
+	font-weight: 700;
+	color: ${({ theme }) => theme.text};
+	background-color: ${({ theme }) => theme.line};
+	padding: 2px 6px;
+	border-radius: 4px;
+	font-family: "Courier New", Courier, monospace;
+`;
+
 const Task1 = () => {
 	const theme = useTheme();
 
-	const glassData = Array.from({ length: 201 }, (_, i) => {
-		const wavelength = 400 + i * 2;
-		return {
-			wavelength,
-			refractiveIndex: getCrownGlassRefractiveIndex(wavelength),
-		};
-	});
+	const glassData = useMemo(
+		() =>
+			Array.from({ length: 201 }, (_, i) => {
+				const wavelength = 400 + i * 2;
+				return {
+					wavelength,
+					refractiveIndex: getCrownGlassRefractiveIndex(wavelength),
+				};
+			}),
+		[],
+	);
 
+	const waterData = useMemo(
+		() =>
+			Array.from({ length: 193 }, (_, i) => {
+				const frequency = 405 + i * 2;
+				return {
+					frequency,
+					refractiveIndex: getWaterRefractiveIndex(frequency),
+				};
+			}).filter((p) => !isNaN(p.refractiveIndex)),
+		[],
+	);
+
+	const glassIndices = glassData.map((d) => d.refractiveIndex);
+	const waterIndices = waterData.map((d) => d.refractiveIndex);
 	const freqStart = 405,
-		freqEnd = 790;
-	const totalFreqRange = freqEnd - freqStart;
-	const waterData = Array.from({ length: 193 }, (_, i) => {
-		const frequency = freqStart + i * 2;
-		return {
-			frequency,
-			refractiveIndex: getWaterRefractiveIndex(frequency),
-			color: frequencyToColor(frequency),
-		};
-	});
+		freqEnd = 790,
+		totalFreqRange = freqEnd - freqStart;
 
 	return (
 		<TaskContainer>
@@ -90,8 +109,8 @@ const Task1 = () => {
 							margin={{
 								top: 5,
 								right: 30,
-								left: 30,
-								bottom: 20,
+								left: 40,
+								bottom: 25,
 							}}>
 							<CartesianGrid
 								strokeDasharray="3 3"
@@ -105,7 +124,7 @@ const Task1 = () => {
 								label={{
 									value: "Wavelength (nm)",
 									position: "insideBottom",
-									offset: -10,
+									offset: -15,
 									fill: theme.text,
 								}}
 							/>
@@ -117,7 +136,7 @@ const Task1 = () => {
 									value: "Refractive Index (n)",
 									angle: -90,
 									position: "insideLeft",
-									offset: -20,
+									offset: -25,
 									fill: theme.text,
 								}}
 							/>
@@ -128,8 +147,9 @@ const Task1 = () => {
 									borderRadius: "8px",
 								}}
 								itemStyle={{ color: theme.text }}
+								formatter={(value) => value.toFixed(5)}
 							/>
-							<Legend wrapperStyle={{ paddingTop: "20px" }} />
+							<Legend wrapperStyle={{ paddingTop: "25px" }} />
 							<Line
 								type="monotone"
 								dataKey="refractiveIndex"
@@ -142,17 +162,30 @@ const Task1 = () => {
 					</ResponsiveContainer>
 				</ChartWrapper>
 				<SummaryContainer>
-					<SummaryTitle>What you are seeing</SummaryTitle>
+					<SummaryTitle>
+						Analysis: Normal Dispersion in Glass
+					</SummaryTitle>
 					<p>
-						This graph shows how the refractive index (a measure of
-						how much light bends) of BK7 Crown Glass changes with
-						the wavelength of light. The relationship is defined by
-						the Sellmeier equation. Notice that the refractive index
-						is higher for shorter wavelengths (like blue light) than
-						for longer wavelengths (like red light). This phenomenon
-						is called <strong>dispersion</strong> and is the
-						fundamental reason why prisms can split white light into
-						a rainbow.
+						This graph models the refractive index of BK7 Crown
+						Glass, a common material for optical lenses and prisms.
+						It is calculated using the Sellmeier equation, a precise
+						empirical model for transparent media. The key
+						observation is that the refractive index is not
+						constant; it changes with the wavelength of light.
+					</p>
+					<p>
+						Specifically, shorter wavelengths (like violet and blue
+						light) have a higher refractive index (
+						<ResultValue>
+							{Math.max(...glassIndices).toFixed(4)}
+						</ResultValue>
+						) than longer wavelengths (like red light,{" "}
+						<ResultValue>
+							{Math.min(...glassIndices).toFixed(4)}
+						</ResultValue>
+						). This phenomenon, known as normal dispersion, is
+						fundamental to how a prism separates white light into a
+						spectrum, a process explored in Task 12.
 					</p>
 				</SummaryContainer>
 			</div>
@@ -166,8 +199,8 @@ const Task1 = () => {
 							margin={{
 								top: 5,
 								right: 30,
-								left: 30,
-								bottom: 20,
+								left: 40,
+								bottom: 25,
 							}}>
 							<defs>
 								<linearGradient
@@ -176,18 +209,19 @@ const Task1 = () => {
 									y1="0"
 									x2="1"
 									y2="0">
-									{waterData.map((entry) => {
-										const offset =
-											(entry.frequency - freqStart) /
-											totalFreqRange;
-										return (
-											<stop
-												key={entry.frequency}
-												offset={offset}
-												stopColor={entry.color}
-											/>
-										);
-									})}
+									{waterData.map((entry) => (
+										<stop
+											key={entry.frequency}
+											offset={`${
+												((entry.frequency - freqStart) /
+													totalFreqRange) *
+												100
+											}%`}
+											stopColor={frequencyToColor(
+												entry.frequency,
+											)}
+										/>
+									))}
 								</linearGradient>
 							</defs>
 							<CartesianGrid
@@ -202,20 +236,20 @@ const Task1 = () => {
 								label={{
 									value: "Frequency (THz)",
 									position: "insideBottom",
-									offset: -10,
+									offset: -15,
 									fill: theme.text,
 								}}
 							/>
 							<YAxis
 								type="number"
-								domain={[1.33, 1.34]}
+								domain={[1.33, 1.342]}
 								tickFormatter={(tick) => tick.toFixed(3)}
 								stroke={theme.text}
 								label={{
 									value: "Refractive Index (n)",
 									angle: -90,
 									position: "insideLeft",
-									offset: -20,
+									offset: -25,
 									fill: theme.text,
 								}}
 							/>
@@ -226,29 +260,44 @@ const Task1 = () => {
 									borderRadius: "8px",
 								}}
 								itemStyle={{ color: theme.text }}
+								formatter={(value) => value.toFixed(5)}
 							/>
+							<Legend wrapperStyle={{ paddingTop: "25px" }} />
+							{/* Layer 1: The visible gradient line (no tooltip interaction) */}
 							<Line
 								type="monotone"
 								dataKey="refractiveIndex"
-								name="Water"
 								stroke="url(#waterGradient)"
 								strokeWidth={5}
 								dot={false}
+								activeDot={false}
+								legendType="none"
 							/>
 						</LineChart>
 					</ResponsiveContainer>
 				</ChartWrapper>
 				<SummaryContainer>
-					<SummaryTitle>What you are seeing</SummaryTitle>
+					<SummaryTitle>Analysis: Dispersion in Water</SummaryTitle>
 					<p>
-						This graph shows how the refractive index of water
-						changes with the frequency of light, based on the
-						empirical formula provided in the challenge. The line is
-						colored to match the actual color of light at each
-						frequency. Just like with glass, the refractive index
-						varies across the spectrum. This property of water is
-						essential for understanding how rainbows are formed, a
-						topic explored in Task 11.
+						This graph models the refractive index of water across
+						the visible spectrum using the empirical formula
+						provided in the challenge. Like glass, water exhibits
+						dispersion, though the change is less pronounced.
+					</p>
+					<p>
+						The refractive index ranges from approximately{" "}
+						<ResultValue>
+							{Math.min(...waterIndices).toFixed(4)}
+						</ResultValue>{" "}
+						for red light (lower frequency) to{" "}
+						<ResultValue>
+							{Math.max(...waterIndices).toFixed(4)}
+						</ResultValue>{" "}
+						for violet light (higher frequency). Although a small
+						variation, this is the critical physical property that
+						allows water droplets in the atmosphere to act like tiny
+						prisms, creating rainbows. This will be the foundational
+						model for the rainbow physics explored in Task 11.
 					</p>
 				</SummaryContainer>
 			</div>
