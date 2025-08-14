@@ -3,9 +3,9 @@ import React, { useState, useEffect, useRef } from "react";
 import styled, { useTheme } from "styled-components";
 import { motion } from "framer-motion";
 import Slider from "../components/Slider";
-import { anamorphicTransform } from "../utils/physics";
+import { discToAnnularArcTransform } from "../utils/task10_physics";
 
-// --- Styled Components ---
+// --- Styled Components (consistent across tasks) ---
 const TaskContainer = styled(motion.div)``;
 
 const Title = styled.h2`
@@ -50,124 +50,223 @@ const SummaryTitle = styled.h3`
 	color: ${({ theme }) => theme.primary};
 `;
 
+const Equation = styled.div`
+	margin: 1rem 0;
+	padding: 1rem;
+	background: ${({ theme }) => theme.body};
+	border-radius: 6px;
+	text-align: center;
+	font-family: "Courier New", Courier, monospace;
+	font-size: 1.1rem;
+	overflow-x: auto;
+`;
+
 const Canvas = styled.canvas`
 	width: 100%;
 	height: 100%;
 	border-radius: 8px;
 `;
 
-// --- Task 10 Component ---
+// --- Component ---
 const Task10 = () => {
 	const theme = useTheme();
 	const canvasRef = useRef(null);
 	const imgDataRef = useRef(null);
 	const [isImageLoaded, setIsImageLoaded] = useState(false);
 
-	const [radiusFactor, setRadiusFactor] = useState(3.0);
-	const [arcDegrees, setArcDegrees] = useState(160);
+	// Only the two required controls
+	const [Rf, setRf] = useState(3.0); // outer arc radius
+	const [arcDeg, setArcDeg] = useState(160); // total angular span
 
-	// Load image data once
+	// Load the source image once
 	useEffect(() => {
 		const image = new Image();
 		image.src = "/sybil_cat.png";
 		image.onload = () => {
-			const tempCanvas = document.createElement("canvas");
-			tempCanvas.width = image.width;
-			tempCanvas.height = image.height;
-			const tempCtx = tempCanvas.getContext("2d");
-			tempCtx.drawImage(image, 0, 0);
+			const tmp = document.createElement("canvas");
+			tmp.width = image.width;
+			tmp.height = image.height;
+			const tctx = tmp.getContext("2d");
+			tctx.drawImage(image, 0, 0);
 			imgDataRef.current = {
-				image: image,
-				pixels: tempCtx.getImageData(0, 0, image.width, image.height),
+				image,
+				pixels: tctx.getImageData(0, 0, image.width, image.height),
 			};
 			setIsImageLoaded(true);
 		};
 	}, []);
 
-	// Main drawing effect
+	// Render
 	useEffect(() => {
 		if (!isImageLoaded || !canvasRef.current) return;
 
 		const { image, pixels } = imgDataRef.current;
 		const canvas = canvasRef.current;
-		const ctx = canvas.getContext("2d");
-		const { width, height } = canvas.getBoundingClientRect();
+		const ctx = canvas.getContext("2d", { alpha: true });
 
-		if (width === 0 || height === 0) return;
+		// HiDPI setup
+		const dpr = Math.min(window.devicePixelRatio || 1, 2);
+		const rect = canvas.getBoundingClientRect();
+		const W = Math.max(1, Math.floor(rect.width));
+		const H = Math.max(1, Math.floor(rect.height));
+		canvas.width = Math.floor(W * dpr);
+		canvas.height = Math.floor(H * dpr);
+		ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+		ctx.imageSmoothingEnabled = true;
 
-		canvas.width = width;
-		canvas.height = height;
+		// Clear
+		ctx.clearRect(0, 0, W, H);
 
-		ctx.clearRect(0, 0, width, height);
+		// Symmetric layout (both visuals perfectly centred in their halves)
+		const pad = 24;
+		const halfW = (W - 3 * pad) / 2;
 
-		// --- Left side: Draw Original Image in a Circle ---
-		const leftOriginX = width / 4;
-		const leftOriginY = height / 2;
-		const circleRadius = Math.min(width / 4, height / 2) * 0.8;
+		// Left unit circle centre & radius
+		const leftCX = pad + halfW / 2;
+		const leftCY = H / 2;
+		const discRadiusPx = Math.min(halfW / 2, H / 2 - pad); // keep generous margins
 
+		// Right annular arc centre (the “red star” position)
+		const rightCX = pad * 2 + halfW + halfW / 2;
+		const rightCY = H / 2;
+
+		// Common scale so both sides share the same pixel density.
+		// The outer ring radius must fit: Rf * scale <= discRadiusPx
+		const scale = discRadiusPx / Math.max(1e-9, Rf);
+
+		// --- Left: Original image clipped to a perfect unit circle ---
 		ctx.save();
 		ctx.beginPath();
-		ctx.arc(leftOriginX, leftOriginY, circleRadius, 0, 2 * Math.PI);
+		ctx.arc(leftCX, leftCY, discRadiusPx, 0, 2 * Math.PI);
 		ctx.strokeStyle = theme.line;
+		ctx.lineWidth = 1;
 		ctx.stroke();
 		ctx.clip();
 		ctx.drawImage(
 			image,
-			leftOriginX - circleRadius,
-			leftOriginY - circleRadius,
-			circleRadius * 2,
-			circleRadius * 2,
+			leftCX - discRadiusPx,
+			leftCY - discRadiusPx,
+			discRadiusPx * 2,
+			discRadiusPx * 2,
 		);
 		ctx.restore();
+
 		ctx.fillStyle = theme.text;
 		ctx.textAlign = "center";
-		ctx.font = "14px " + theme.font;
+		ctx.font = `14px ${theme.font || "system-ui"}`;
 		ctx.fillText(
 			"Original Image (Unit Circle)",
-			leftOriginX,
-			leftOriginY + circleRadius + 20,
+			leftCX,
+			leftCY + discRadiusPx + 20,
 		);
 
-		// --- Right side: Draw Anamorphic Image ---
-		const rightOriginX = width * 0.65;
-		const rightOriginY = height * 0.8;
-		const pixelSkip = 2;
+		// --- Right: Annular arc guide (outer arc + inner blank circle + two radii) ---
+		const Δ = (arcDeg * Math.PI) / 180;
+		const thetaStart = -Δ / 2;
+		const thetaEnd = +Δ / 2;
 
-		for (let j = 0; j < pixels.height; j += pixelSkip) {
-			for (let i = 0; i < pixels.width; i += pixelSkip) {
-				const sourceIndex = (j * pixels.width + i) * 4;
-				if (pixels.data[sourceIndex + 3] < 255) continue;
+		const tau = 0.35; // fixed inner/outer ratio (kept constant to honour “two inputs only”)
+		const R_out_px = Rf * scale;
+		const R_in_px = Math.max(1, tau * R_out_px);
 
-				const pX = (i / pixels.width) * 2 - 1;
-				const pY = (1 - j / pixels.height) * 2 - 1;
+		// Draw the annulus edges
+		ctx.save();
+		ctx.translate(rightCX, rightCY);
+		ctx.strokeStyle = theme.line;
+		ctx.lineWidth = 1;
 
-				const transformed = anamorphicTransform(
-					{ x: pX, y: pY },
-					radiusFactor,
-					arcDegrees,
-				);
-				if (isNaN(transformed.x) || isNaN(transformed.y)) continue;
+		// Outer boundary
+		ctx.beginPath();
+		ctx.moveTo(
+			R_out_px * Math.cos(thetaStart),
+			R_out_px * Math.sin(thetaStart),
+		);
+		ctx.arc(0, 0, R_out_px, thetaStart, thetaEnd);
+		ctx.stroke();
 
-				const targetX =
-					rightOriginX +
-					transformed.x * (circleRadius / radiusFactor);
-				const targetY =
-					rightOriginY -
-					transformed.y * (circleRadius / radiusFactor);
+		// Inner boundary (blank hole)
+		ctx.beginPath();
+		ctx.moveTo(
+			R_in_px * Math.cos(thetaStart),
+			R_in_px * Math.sin(thetaStart),
+		);
+		ctx.arc(0, 0, R_in_px, thetaStart, thetaEnd);
+		ctx.stroke();
 
-				ctx.fillStyle = `rgb(${pixels.data[sourceIndex]}, ${
-					pixels.data[sourceIndex + 1]
-				}, ${pixels.data[sourceIndex + 2]})`;
+		// Two radii (start/end)
+		ctx.beginPath();
+		ctx.moveTo(
+			R_in_px * Math.cos(thetaStart),
+			R_in_px * Math.sin(thetaStart),
+		);
+		ctx.lineTo(
+			R_out_px * Math.cos(thetaStart),
+			R_out_px * Math.sin(thetaStart),
+		);
+		ctx.moveTo(R_in_px * Math.cos(thetaEnd), R_in_px * Math.sin(thetaEnd));
+		ctx.lineTo(
+			R_out_px * Math.cos(thetaEnd),
+			R_out_px * Math.sin(thetaEnd),
+		);
+		ctx.stroke();
+
+		// Draw the small “star” at the sector centre (the base of the object)
+		ctx.fillStyle = theme.primary;
+		const star = (r) => {
+			ctx.beginPath();
+			for (let k = 0; k < 10; k++) {
+				const ang = (k * Math.PI) / 5;
+				const rr = k % 2 === 0 ? r : r / 2;
+				ctx.lineTo(rr * Math.cos(ang), rr * Math.sin(ang));
+			}
+			ctx.closePath();
+			ctx.fill();
+		};
+		star(6);
+		ctx.restore();
+
+		// --- Pixel remap: unit disc → annular arc (ring) ---
+		const step = 2; // performance knob; lower = finer sampling
+		for (let j = 0; j < pixels.height; j += step) {
+			for (let i = 0; i < pixels.width; i += step) {
+				const idx = (j * pixels.width + i) * 4;
+				const a = pixels.data[idx + 3];
+				if (a < 8) continue; // near-transparent -> skip
+
+				// Map source pixel centre to unit-disc coords (x,y) in [-1,1], y-up
+				const u = (i + 0.5) / pixels.width;
+				const v = (j + 0.5) / pixels.height;
+				const x = 2 * u - 1;
+				const y = 1 - 2 * v;
+
+				const t = discToAnnularArcTransform({ x, y }, Rf, arcDeg);
+				if (!isFinite(t.x) || !isFinite(t.y)) continue;
+
+				// World (y-up) -> Canvas (y-down)
+				const targetX = rightCX + t.x * scale;
+				const targetY = rightCY - t.y * scale;
+
+				ctx.fillStyle = `rgb(${pixels.data[idx]}, ${
+					pixels.data[idx + 1]
+				}, ${pixels.data[idx + 2]})`;
 				ctx.fillRect(
 					Math.floor(targetX),
 					Math.floor(targetY),
-					pixelSkip,
-					pixelSkip,
+					step,
+					step,
 				);
 			}
 		}
-		ctx.fillText("Anamorphic Image", rightOriginX, rightOriginY + 20);
-	}, [isImageLoaded, radiusFactor, arcDegrees, theme]);
+
+		ctx.fillStyle = theme.text;
+		ctx.textAlign = "center";
+		ctx.font = `14px ${theme.font || "system-ui"}`;
+		ctx.fillText(
+			"Anamorphic Image (Annular Arc)",
+			rightCX,
+			rightCY + Math.max(R_out_px, discRadiusPx) + 20,
+		);
+	}, [isImageLoaded, Rf, arcDeg, theme]);
 
 	return (
 		<TaskContainer>
@@ -178,25 +277,23 @@ const Task10 = () => {
 					<h3 style={{ marginBottom: "1rem" }}>
 						Transformation Controls
 					</h3>
+
 					<Slider
-						label="Radius Factor (Rf)"
+						label="Arc Radius Rf"
 						min={1.0}
-						max={5.0}
+						max={6.0}
 						step={0.1}
-						value={radiusFactor}
-						onChange={(e) =>
-							setRadiusFactor(parseFloat(e.target.value))
-						}
+						value={Rf}
+						onChange={(e) => setRf(parseFloat(e.target.value))}
 					/>
+
 					<Slider
-						label="Arc Degrees"
-						min={90}
-						max={270}
+						label="Arc Span (degrees)"
+						min={30}
+						max={360}
 						step={1}
-						value={arcDegrees}
-						onChange={(e) =>
-							setArcDegrees(parseFloat(e.target.value))
-						}
+						value={arcDeg}
+						onChange={(e) => setArcDeg(parseFloat(e.target.value))}
 						unit="°"
 					/>
 				</ControlAndVizContainer>
@@ -207,37 +304,21 @@ const Task10 = () => {
 			</TwoColumnLayout>
 
 			<SummaryContainer>
-				<SummaryTitle>Analysis: Anamorphic Projection</SummaryTitle>
+				<SummaryTitle>Analysis: Unit Disc → Annular Arc</SummaryTitle>
 				<p>
-					This simulation creates an anamorphic image by remapping
-					pixels from a circular source image onto a sector of a
-					circle. This is a classic technique in art and optics used
-					to create distortions that appear correct only when viewed
-					from a specific vantage point or, in this case, when
-					reflected in a cylindrical mirror.
+					The entire unit-disc image is re-expressed in polar form (ρ,
+					φ) and stretched into the annulus sector between a small
+					inner blank circle and the outer arc of radius R<sub>f</sub>
+					. Setting Δ = 360° produces a complete ring with a central
+					hole; placing a polished cylinder over the original disc
+					reconstructs the image with a three-dimensional appearance.
 				</p>
-				<p>The process involves these steps:</p>
-				<ol>
-					<li>
-						Pixels from the original image are treated as points
-						within a "unit circle" (a circle with radius 1).
-					</li>
-					<li>
-						Each point's Cartesian coordinates (x, y) are converted
-						to polar coordinates (radius, angle).
-					</li>
-					<li>
-						These polar coordinates are then mapped to a new
-						coordinate system: the new angle is determined by the
-						original 'x' position, and the new radius is determined
-						by the original 'y' position.
-					</li>
-					<li>
-						Finally, the new polar coordinates are converted back to
-						Cartesian coordinates to be drawn on the screen,
-						resulting in the arced, distorted image.
-					</li>
-				</ol>
+				<Equation>
+					r′ = R<sub>in</sub> + (R<sub>f</sub> − R<sub>in</sub>
+					)ρ,&nbsp; θ′ = −Δ/2 + Δ(φ + π)/(2π),&nbsp; (X,Y) = (r′cosθ′,
+					r′sinθ′), &nbsp;with&nbsp; R<sub>in</sub> = τ R<sub>f</sub>,
+					τ = 0.35.
+				</Equation>
 			</SummaryContainer>
 		</TaskContainer>
 	);

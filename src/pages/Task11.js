@@ -19,6 +19,8 @@ import {
 } from "recharts";
 import { motion, AnimatePresence } from "framer-motion";
 import Slider from "../components/Slider";
+
+// Keep using your existing physics.js for 11a/11b:
 import {
 	getWaterRefractiveIndex,
 	frequencyToColor,
@@ -26,8 +28,12 @@ import {
 	findRainbowMinDeviation,
 } from "../utils/physics";
 
-// --- Styled Components ---
+// NEW: task-specific robust maths for 11c/11d only
+import { findMinimaDeg, sampleRainbowAngles } from "../utils/task11_physics";
+
+// --- Styled Components (consistent) ---
 const TaskContainer = styled(motion.div)``;
+
 const Title = styled.h2`
 	margin-bottom: 1.5rem;
 	font-weight: 700;
@@ -35,6 +41,7 @@ const Title = styled.h2`
 	border-left: 4px solid ${({ theme }) => theme.primary};
 	padding-left: 1rem;
 `;
+
 const SummaryContainer = styled.div`
 	background: ${({ theme }) => theme.accent};
 	border-radius: 8px;
@@ -44,10 +51,12 @@ const SummaryContainer = styled.div`
 	margin-top: 2rem;
 	font-size: 1rem;
 `;
+
 const SummaryTitle = styled.h3`
 	margin-bottom: 1rem;
 	color: ${({ theme }) => theme.primary};
 `;
+
 const ChartWrapper = styled.div`
 	height: 500px;
 	background: ${({ theme }) => theme.accent};
@@ -56,6 +65,7 @@ const ChartWrapper = styled.div`
 	padding: 1rem;
 	box-shadow: 0 4px 12px ${({ theme }) => theme.shadow};
 `;
+
 const ControlAndVizContainer = styled.div`
 	background: ${({ theme }) => theme.accent};
 	border: 1px solid ${({ theme }) => theme.line};
@@ -66,6 +76,7 @@ const ControlAndVizContainer = styled.div`
 	display: flex;
 	flex-direction: column;
 `;
+
 const TabContainer = styled.div`
 	display: flex;
 	gap: 0.5rem;
@@ -73,6 +84,7 @@ const TabContainer = styled.div`
 	border-bottom: 2px solid ${({ theme }) => theme.line};
 	flex-wrap: wrap;
 `;
+
 const TabButton = styled(motion.button)`
 	padding: 0.75rem 1.5rem;
 	border: none;
@@ -88,6 +100,7 @@ const TabButton = styled(motion.button)`
 		opacity: 1;
 	}
 `;
+
 const Underline = styled(motion.div)`
 	position: absolute;
 	bottom: -2px;
@@ -96,6 +109,7 @@ const Underline = styled(motion.div)`
 	height: 2px;
 	background: ${({ theme }) => theme.primary};
 `;
+
 const Canvas = styled.canvas`
 	width: 100%;
 	height: 100%;
@@ -111,6 +125,7 @@ const Task11 = () => {
 		{ id: "11c", label: "Refraction Angle vs. Frequency" },
 		{ id: "11d", label: "Rainbow Simulator" },
 	];
+
 	return (
 		<TaskContainer>
 			<Title>Task 11: Rainbow Physics</Title>
@@ -136,24 +151,23 @@ const Task11 = () => {
 					transition={{ duration: 0.2 }}>
 					{activeTab === "11a" && <View11a />}
 					{activeTab === "11b" && <View11b />}
-					{activeTab === "11c" && <View11c />}
-					{activeTab === "11d" && <View11d />}
+					{activeTab === "11c" && <View11c />} {/* FIXED */}
+					{activeTab === "11d" && <View11d />} {/* FIXED */}
 				</motion.div>
 			</AnimatePresence>
 		</TaskContainer>
 	);
 };
 
-// --- Sub-Components ---
+// --- 11a (unchanged logic) ---
 const View11a = () => {
-	/* ... Code from previous correct response ... */
 	const theme = useTheme();
 	const data = useMemo(() => {
 		const points = [];
 		const colors = { Red: 442.5, Green: 565, Blue: 650 };
 		for (let i = 0; i <= 900; i++) {
 			const theta = i / 10;
-			let point = { theta };
+			const point = { theta };
 			for (const [color, freq] of Object.entries(colors)) {
 				const n = getWaterRefractiveIndex(freq);
 				const { primary_epsilon_deg, secondary_epsilon_deg } =
@@ -266,26 +280,23 @@ const View11a = () => {
 			<SummaryContainer>
 				<SummaryTitle>11a: Elevation vs. Incidence Angle</SummaryTitle>
 				<p>
-					This graph shows the exit angle (elevation, ε) of a light
-					ray from a water droplet based on its initial entry angle
-					(incidence, θ). Notice that for both the primary (solid
-					lines) and secondary (dashed lines) rainbows, the curves
-					flatten out. This "flattening" creates a concentration of
-					light at a specific angle—the rainbow angle. Many different
-					incident angles all exit at roughly the same elevation,
-					making the rainbow bright and visible.
+					This graph shows the exit elevation ε of a ray from a water
+					droplet as a function of the incident angle θ. The flat
+					regions correspond to the rainbow concentrations: many θ
+					values yield almost the same ε.
 				</p>
 			</SummaryContainer>
 		</>
 	);
 };
 
+// --- 11b (unchanged logic) ---
 const View11b = () => {
 	const theme = useTheme();
 	const data = useMemo(() => {
 		return Array.from({ length: 193 }, (_, i) => {
-			const freq = 405 + i * 2;
-			const n = getWaterRefractiveIndex(freq);
+			const frequency = 405 + i * 2;
+			const n = getWaterRefractiveIndex(frequency);
 			if (isNaN(n)) return null;
 			const { primary_theta_deg, secondary_theta_deg } =
 				findRainbowMinDeviation(n);
@@ -298,7 +309,7 @@ const View11b = () => {
 				n,
 			);
 			return {
-				frequency: freq,
+				frequency,
 				primaryAngle: primary_epsilon_deg,
 				secondaryAngle: secondary_epsilon_deg,
 			};
@@ -348,7 +359,7 @@ const View11b = () => {
 						/>
 						<defs>
 							<linearGradient
-								id="primaryGradient"
+								id="g11b_primary"
 								x1="0"
 								y1="0"
 								x2="1"
@@ -368,7 +379,7 @@ const View11b = () => {
 								))}
 							</linearGradient>
 							<linearGradient
-								id="secondaryGradient"
+								id="g11b_secondary"
 								x1="0"
 								y1="0"
 								x2="1"
@@ -391,7 +402,7 @@ const View11b = () => {
 						<Line
 							type="monotone"
 							dataKey="primaryAngle"
-							stroke="url(#primaryGradient)"
+							stroke="url(#g11b_primary)"
 							strokeWidth={8}
 							dot={false}
 							name="Primary Rainbow"
@@ -399,7 +410,7 @@ const View11b = () => {
 						<Line
 							type="monotone"
 							dataKey="secondaryAngle"
-							stroke="url(#secondaryGradient)"
+							stroke="url(#g11b_secondary)"
 							strokeWidth={8}
 							dot={false}
 							name="Secondary Rainbow"
@@ -412,42 +423,42 @@ const View11b = () => {
 					11b: Rainbow Angle vs. Light Frequency
 				</SummaryTitle>
 				<p>
-					This chart shows the precise angle of a rainbow for each
-					frequency (color) of light. Because the refractive index of
-					water is slightly different for each color (dispersion),
-					each color forms its rainbow at a slightly different angle.
-					For the primary rainbow (the lower, brighter one), red light
-					appears at a higher angle (~42.5°) and violet light at a
-					lower angle (~40.9°). For the secondary rainbow, this order
-					is reversed.
+					Dispersion causes a small shift in ε with colour: red
+					(~42.5°) to violet (~40.9°) for the primary; the secondary
+					is reversed and at a larger angle.
 				</p>
 			</SummaryContainer>
 		</>
 	);
 };
 
+// --- 11c (FIXED): Refraction Angle φ at Minimum Deviation vs Frequency ---
 const View11c = () => {
-	/* ... Code from previous correct response ... */
 	const theme = useTheme();
+
+	// Build a single clean dataset
 	const data = useMemo(() => {
-		const points = [];
-		for (let freq = 405; freq <= 790; freq += 2) {
-			const n = getWaterRefractiveIndex(freq);
-			if (isNaN(n)) continue;
-			const { primary_theta_deg } = findRainbowMinDeviation(n);
-			const { phi_deg: primary_phi } = calculateRainbowAngles(
-				primary_theta_deg,
-				n,
-			);
-			const criticalAngle = Math.asin(1 / n) * (180 / Math.PI);
-			points.push({
-				frequency: freq,
-				primaryPhi: primary_phi,
-				criticalAngle: criticalAngle,
+		const arr = [];
+		for (let f = 405; f <= 790; f += 2) {
+			const n = getWaterRefractiveIndex(f);
+			if (!isFinite(n)) continue;
+			const { primary, critical_deg } = findMinimaDeg(n); // robust search
+			arr.push({
+				frequency: f,
+				phiPrimary: primary.phi_deg, // internal refraction φ at min deviation
+				critical: critical_deg, // water→air critical angle
 			});
 		}
-		return points;
+		return arr;
 	}, []);
+
+	// Build a gradient for colouring φ by frequency (to match 11b)
+	const gradStops = useMemo(() => {
+		return data.map((d) => ({
+			off: ((d.frequency - 405) / (790 - 405)) * 100,
+			col: frequencyToColor(d.frequency),
+		}));
+	}, [data]);
 
 	return (
 		<>
@@ -477,7 +488,7 @@ const View11c = () => {
 							domain={[38, 50]}
 							stroke={theme.text}
 							label={{
-								value: "Refraction Angle φ (°)",
+								value: "Refraction Angle φ (°, inside water)",
 								angle: -90,
 								position: "insideLeft",
 								offset: -10,
@@ -485,27 +496,48 @@ const View11c = () => {
 							}}
 						/>
 						<Tooltip
+							formatter={(value, name) => {
+								const label =
+									name === "phiPrimary"
+										? "φ at min deviation"
+										: "Critical angle";
+								return [`${value.toFixed(2)}°`, label];
+							}}
+							labelFormatter={(freq) => `Frequency: ${freq} THz`}
 							contentStyle={{
 								backgroundColor: theme.accent,
 								border: `1px solid ${theme.line}`,
 							}}
 						/>
 						<Legend wrapperStyle={{ paddingTop: "20px" }} />
-						{data.slice(0, -1).map((p, i) => (
-							<Line
-								key={`phi-${p.frequency}`}
-								type="monotone"
-								dataKey="primaryPhi"
-								data={[p, data[i + 1]]}
-								stroke={frequencyToColor(p.frequency)}
-								strokeWidth={3}
-								dot={false}
-								legendType="none"
-							/>
-						))}
+						<defs>
+							<linearGradient
+								id="g11c_phi"
+								x1="0"
+								y1="0"
+								x2="1"
+								y2="0">
+								{gradStops.map((s, i) => (
+									<stop
+										key={i}
+										offset={`${s.off}%`}
+										stopColor={s.col}
+									/>
+								))}
+							</linearGradient>
+						</defs>
 						<Line
-							dataKey="criticalAngle"
-							name="Critical Angle"
+							type="monotone"
+							dataKey="phiPrimary"
+							name="φ at min deviation"
+							stroke="url(#g11c_phi)"
+							strokeWidth={4}
+							dot={false}
+						/>
+						<Line
+							type="monotone"
+							dataKey="critical"
+							name="Critical angle"
 							stroke={theme.text}
 							strokeDasharray="5 5"
 							strokeWidth={2}
@@ -514,19 +546,15 @@ const View11c = () => {
 					</LineChart>
 				</ResponsiveContainer>
 			</ChartWrapper>
+
 			<SummaryContainer>
 				<SummaryTitle>11c: Refraction Angle vs. Frequency</SummaryTitle>
 				<p>
-					This graph shows the internal angle of refraction (φ) inside
-					the water droplet at the point of minimum deviation (the
-					rainbow angle). The colored line represents this angle for
-					the primary rainbow. The dashed line represents the critical
-					angle for a water-air interface. Because the refraction
-					angle is always less than the critical angle, some light is
-					always transmitted (leaks) out of the back of the droplet at
-					each internal reflection. This is why the primary rainbow is
-					brighter than the secondary, and why higher-order rainbows
-					are almost never visible.
+					The internal refraction angle φ at the primary rainbow’s
+					minimum deviation is always below the water–air critical
+					angle, so light escapes at the final interface. This, along
+					with fewer internal reflections, explains why the primary is
+					brighter than the secondary.
 				</p>
 			</SummaryContainer>
 		</>
@@ -536,91 +564,135 @@ const View11c = () => {
 const View11d = () => {
 	const theme = useTheme();
 	const canvasRef = useRef(null);
-	const [solarElevation, setSolarElevation] = useState(20);
+	const [solarElevation, setSolarElevation] = useState(20); // α in degrees (sun above horizon)
 
 	const drawRainbow = useCallback(() => {
 		const canvas = canvasRef.current;
 		if (!canvas) return;
-		const ctx = canvas.getContext("2d");
-		const { width, height } = canvas.getBoundingClientRect();
-		if (width === 0 || height === 0) return;
-		canvas.width = width;
-		canvas.height = height;
+		const ctx = canvas.getContext("2d", { alpha: true });
 
-		const horizonY = height * 0.7;
-		const skyGradient = ctx.createLinearGradient(0, 0, 0, horizonY);
-		skyGradient.addColorStop(0, "#5D9CEC");
-		skyGradient.addColorStop(1, "#AEC6CF");
-		ctx.fillStyle = skyGradient;
-		ctx.fillRect(0, 0, width, horizonY);
+		// HiDPI-safe sizing
+		const dpr = Math.min(window.devicePixelRatio || 1, 2);
+		const rect = canvas.getBoundingClientRect();
+		const W = Math.max(1, Math.floor(rect.width));
+		const H = Math.max(1, Math.floor(rect.height));
+		canvas.width = Math.floor(W * dpr);
+		canvas.height = Math.floor(H * dpr);
+		ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+		// ---------- Scene layout ----------
+		const horizonY = Math.round(H * 0.7); // sea-level horizon
+		// Sky + sea
+		const sky = ctx.createLinearGradient(0, 0, 0, horizonY);
+		sky.addColorStop(0, "#5D9CEC");
+		sky.addColorStop(1, "#AEC6CF");
+		ctx.fillStyle = sky;
+		ctx.fillRect(0, 0, W, horizonY);
 		ctx.fillStyle = "#2E7D32";
-		ctx.fillRect(0, horizonY, width, height - horizonY);
+		ctx.fillRect(0, horizonY, W, H - horizonY);
 
-		const antiSolarPointY =
-			horizonY -
-			Math.tan((solarElevation * Math.PI) / 180) * (width * 0.5);
+		// ---------- Anti-solar centre (sea-level, no topography) ----------
+		// Anti-solar elevation = −α → centre is α degrees *below* the horizon.
+		const MAX_SECONDARY_EPS = 56; // deg (safe cap for radius)
+		const PAD_TOP = 12,
+			PAD_SIDE = 16;
+		// Degree→pixel scale so the largest circle fits within sky & width
+		const deg2px = Math.max(
+			1,
+			Math.min(
+				(horizonY - PAD_TOP) / MAX_SECONDARY_EPS,
+				(W / 2 - PAD_SIDE) / MAX_SECONDARY_EPS,
+			),
+		);
+		const cx = Math.round(W / 2);
+		const cy = Math.round(horizonY + solarElevation * deg2px); // below horizon by α
 
-		const freqStart = 405,
-			freqEnd = 790;
-		const rainbowData = [];
-		for (let freq = freqStart; freq <= freqEnd; freq += 5) {
-			const n = getWaterRefractiveIndex(freq);
-			if (isNaN(n)) continue;
-			const { primary_theta_deg, secondary_theta_deg } =
-				findRainbowMinDeviation(n);
-			const { primary_epsilon_deg } = calculateRainbowAngles(
-				primary_theta_deg,
-				n,
-			);
-			const { secondary_epsilon_deg } = calculateRainbowAngles(
-				secondary_theta_deg,
-				n,
-			);
-			rainbowData.push({
-				p: primary_epsilon_deg,
-				s: secondary_epsilon_deg,
-				color: frequencyToColor(freq),
-			});
+		// ---------- Rainbow angles across spectrum ----------
+		// Uses task11_physics helpers (robust minima). We keep both primary & secondary.
+		const bands = sampleRainbowAngles(getWaterRefractiveIndex, 405, 790, 5);
+		// Guard: if something odd happens, bail gracefully
+		if (!bands.length) {
+			// Horizon line
+			ctx.strokeStyle = theme.line;
+			ctx.lineWidth = 1;
+			ctx.beginPath();
+			ctx.moveTo(0, horizonY + 0.5);
+			ctx.lineTo(W, horizonY + 0.5);
+			ctx.stroke();
+			return;
 		}
 
-		const lineWidth = width > 500 ? 3 : 2;
-		ctx.lineWidth = lineWidth;
-		const arcCenterX = width / 2;
+		// Convert elevation ε (deg) → radius (px) about anti-solar centre.
+		const toRadiusPx = (epsDeg) => {
+			if (!isFinite(epsDeg) || epsDeg <= 0) return null; // ε must be positive
+			return epsDeg * deg2px;
+		};
 
-		// Draw primary and secondary bows band by band
-		for (let i = 0; i < rainbowData.length; i++) {
-			const d = rainbowData[i];
+		// Visibility: a bow is visible only if its apex is above the horizon:
+		// apex elevation = ε − α. Use a tiny tolerance to avoid flicker at threshold.
+		const visible = (epsDeg) =>
+			isFinite(epsDeg) && epsDeg - solarElevation > 0.1;
 
-			// Primary
-			if (!isNaN(d.p)) {
-				ctx.strokeStyle = d.color;
-				ctx.beginPath();
-				const radiusP = Math.tan((d.p * Math.PI) / 180) * width;
-				ctx.arc(
-					arcCenterX,
-					antiSolarPointY,
-					radiusP,
-					Math.PI,
-					2 * Math.PI,
-				);
-				ctx.stroke();
-			}
+		// ---------- Draw only the sky portion (above horizon) ----------
+		ctx.save();
+		ctx.beginPath();
+		ctx.rect(0, 0, W, horizonY);
+		ctx.clip();
 
-			// Secondary
-			if (!isNaN(d.s)) {
-				ctx.strokeStyle = d.color;
-				ctx.beginPath();
-				const radiusS = Math.tan((d.s * Math.PI) / 180) * width;
-				ctx.arc(
-					arcCenterX,
-					antiSolarPointY,
-					radiusS,
-					Math.PI,
-					2 * Math.PI,
-				);
-				ctx.stroke();
-			}
+		ctx.lineWidth = W > 600 ? 3 : 2;
+
+		// Helper to draw a full circle (clipped to sky). We draw *full* circles
+		// and let the clip reveal only the physically visible arc above the horizon.
+		const drawCircle = (r, strokeStyle, dashed = false) => {
+			if (!isFinite(r) || r <= 0) return;
+			ctx.setLineDash(dashed ? [8, 8] : []);
+			ctx.strokeStyle = strokeStyle;
+			ctx.beginPath();
+			ctx.arc(cx, cy, r, 0, Math.PI * 2, false);
+			ctx.stroke();
+			if (dashed) ctx.setLineDash([]);
+		};
+
+		// --- PRIMARY (solid) ---
+		// Draw in frequency order (violet→red or vice versa is fine; radius encodes order).
+		for (const s of bands) {
+			if (!visible(s.eps1)) continue;
+			const r1 = toRadiusPx(s.eps1);
+			drawCircle(r1, frequencyToColor(s.f), false);
 		}
+
+		// --- SECONDARY (dashed) ---
+		// To make it unmistakable, draw it after primary and slightly thicker.
+		ctx.lineWidth = (W > 600 ? 3 : 2) + 1;
+		// Draw frequencies in reverse so radial layering looks crisp on the outer bow.
+		for (let i = bands.length - 1; i >= 0; i--) {
+			const s = bands[i];
+			if (!visible(s.eps2)) continue;
+			const r2 = toRadiusPx(s.eps2);
+			drawCircle(r2, frequencyToColor(s.f), true);
+		}
+
+		ctx.restore();
+
+		// Horizon line (repaint after clipping to keep it crisp)
+		ctx.strokeStyle = theme.line;
+		ctx.lineWidth = 1;
+		ctx.beginPath();
+		ctx.moveTo(0, horizonY + 0.5);
+		ctx.lineTo(W, horizonY + 0.5);
+		ctx.stroke();
+
+		// Labels at the bow apices (optional but helpful to verify both bows)
+		const label = (text, epsDeg, yOffset = -8) => {
+			if (!visible(epsDeg)) return;
+			const r = toRadiusPx(epsDeg);
+			if (!r) return;
+			ctx.fillStyle = theme.text;
+			ctx.font = `12px ${theme.font || "system-ui"}`;
+			ctx.textAlign = "center";
+			// Apex (top) of a circle about (cx, cy) is at angle -π/2 → (cx, cy - r)
+			ctx.fillText(text, cx, cy - r + yOffset);
+		};
 	}, [solarElevation, theme]);
 
 	useEffect(() => {
@@ -653,22 +725,19 @@ const View11d = () => {
 					<Canvas ref={canvasRef} />
 				</div>
 			</ControlAndVizContainer>
+
 			<SummaryContainer>
 				<SummaryTitle>11d: Interactive Rainbow Simulator</SummaryTitle>
 				<p>
-					This simulation shows the appearance of a rainbow at sea
-					level based on the elevation of the sun. The rainbow is
-					always centered on the "anti-solar point"—the point directly
-					opposite the sun. As the sun's elevation changes, this point
-					moves up or down.
-				</p>
-				<p>
-					When the sun is low on the horizon (α is small), the
-					anti-solar point is high, and we see a large, high arc. As
-					the sun rises, the rainbow gets lower. When the sun's
-					elevation is greater than the rainbow angle itself (~42°),
-					the top of the rainbow dips below the horizon, and it is no
-					longer visible from the ground.
+					At sea level, the rainbow is part of a circle centred on the
+					anti-solar point, which is <em>α</em> degrees below the
+					horizon. The bright bow occurs at angular radius <em>ε</em>{" "}
+					from that centre (≈42° primary; ≈51–54° secondary). We draw
+					both: the <strong>primary</strong> as a solid, inner bow and
+					the <strong>secondary</strong> as a dashed, larger bow. Only
+					the sky-visible arc (above the horizon) is shown. As the Sun
+					rises, less of each circle lies above the horizon; when{" "}
+					<em>α ≥ ε</em>, that bow disappears.
 				</p>
 			</SummaryContainer>
 		</>

@@ -6,21 +6,21 @@ import { motion, AnimatePresence } from "framer-motion";
 
 import { GlobalStyles, theme as appTheme } from "./GlobalStyles";
 import Navbar from "./components/Navbar";
-import ThemeToggle from "./components/ThemeToggle"; // We'll create this next
+import ThemeToggle from "./components/ThemeToggle";
 
 // Lazy load pages for better performance
 const Task1 = lazy(() => import("./pages/Task1"));
-const Task2 = lazy(() => import("./pages/Task2")); // <-- ADD THIS LINE
-const Task3 = lazy(() => import("./pages/Task3")); // <-- ADD THIS LINE
-const Task4 = lazy(() => import("./pages/Task4")); // <-- ADD THIS LINE
-const Task5 = lazy(() => import("./pages/Task5")); // <-- ADD THIS LINE
-const Task6 = lazy(() => import("./pages/Task6")); // <-- ADD THIS LINE
-const Task7 = lazy(() => import("./pages/Task7")); // <-- ADD THIS LINE
-const Task8 = lazy(() => import("./pages/Task8")); // <-- ADD THIS LINE
-const Task9 = lazy(() => import("./pages/Task9")); // <-- ADD THIS LINE
-const Task10 = lazy(() => import("./pages/Task10")); // <-- ADD THIS LINE
-const Task11 = lazy(() => import("./pages/Task11")); // <-- ADD THIS LINE
-const Task12 = lazy(() => import("./pages/Task12")); // <-- ADD THIS LINE
+const Task2 = lazy(() => import("./pages/Task2"));
+const Task3 = lazy(() => import("./pages/Task3"));
+const Task4 = lazy(() => import("./pages/Task4"));
+const Task5 = lazy(() => import("./pages/Task5"));
+const Task6 = lazy(() => import("./pages/Task6"));
+const Task7 = lazy(() => import("./pages/Task7"));
+const Task8 = lazy(() => import("./pages/Task8"));
+const Task9 = lazy(() => import("./pages/Task9"));
+const Task10 = lazy(() => import("./pages/Task10"));
+const Task11 = lazy(() => import("./pages/Task11"));
+const Task12 = lazy(() => import("./pages/Task12"));
 
 const AppContainer = styled.div`
 	width: 100vw;
@@ -172,7 +172,6 @@ function App() {
 										</TaskWrapper>
 									}
 								/>{" "}
-								{/* <-- ADD THIS LINE */}
 							</Routes>
 						</Suspense>
 					</AnimatePresence>

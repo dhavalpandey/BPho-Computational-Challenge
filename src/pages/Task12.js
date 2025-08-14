@@ -6,11 +6,12 @@ import Slider from "../components/Slider";
 import {
 	getCrownGlassRefractiveIndex,
 	frequencyToColor,
-	calculatePrismPath,
 } from "../utils/physics";
+import { buildPrism, tracePrismRay } from "../utils/task12_physics";
 
-// --- Styled Components ---
+// ---------- styled ----------
 const TaskContainer = styled(motion.div)``;
+
 const Title = styled.h2`
 	margin-bottom: 1.5rem;
 	font-weight: 700;
@@ -18,12 +19,14 @@ const Title = styled.h2`
 	border-left: 4px solid ${({ theme }) => theme.primary};
 	padding-left: 1rem;
 `;
+
 const TwoColumnLayout = styled.div`
 	display: grid;
 	grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
 	gap: 2rem;
 	align-items: stretch;
 `;
+
 const ControlAndVizContainer = styled.div`
 	background: ${({ theme }) => theme.accent};
 	border: 1px solid ${({ theme }) => theme.line};
@@ -34,6 +37,7 @@ const ControlAndVizContainer = styled.div`
 	display: flex;
 	flex-direction: column;
 `;
+
 const SummaryContainer = styled.div`
 	grid-column: 1 / -1;
 	background: ${({ theme }) => theme.accent};
@@ -44,10 +48,12 @@ const SummaryContainer = styled.div`
 	margin-top: 2rem;
 	font-size: 1rem;
 `;
+
 const SummaryTitle = styled.h3`
 	margin-bottom: 1rem;
 	color: ${({ theme }) => theme.primary};
 `;
+
 const WarningText = styled.p`
 	color: #f39c12;
 	font-weight: 500;
@@ -57,46 +63,103 @@ const WarningText = styled.p`
 	border-radius: 6px;
 	border-left: 3px solid #f39c12;
 `;
+
 const PrismSVG = styled.svg`
 	width: 100%;
 	height: 100%;
 	border-radius: 8px;
 `;
 
+// ---------- small SVG helpers ----------
+const PrismShape = React.memo(({ prism, theme }) => {
+	const { p_left, p_top, p_right } = prism;
+	return (
+		<path
+			d={`M ${p_left.x} ${p_left.y} L ${p_top.x} ${p_top.y} L ${p_right.x} ${p_right.y} Z`}
+			fill={theme.primary}
+			fillOpacity="0.08"
+			stroke={theme.line}
+			strokeWidth="0.02"
+		/>
+	);
+});
+
+const Ray = React.memo(({ segs, colour, theme, showIncident }) => {
+	if (!segs) return null;
+	const { source, entry, insideExit, outEnd } = segs;
+
+	return (
+		<g>
+			{showIncident && source && entry && (
+				<line
+					x1={source.x}
+					y1={source.y}
+					x2={entry.x}
+					y2={entry.y}
+					stroke={theme.text}
+					strokeOpacity="0.65"
+					strokeWidth="0.02"
+				/>
+			)}
+			{entry && insideExit && (
+				<line
+					x1={entry.x}
+					y1={entry.y}
+					x2={insideExit.x}
+					y2={insideExit.y}
+					stroke={colour}
+					strokeWidth="0.02"
+				/>
+			)}
+			{insideExit && outEnd && (
+				<line
+					x1={insideExit.x}
+					y1={insideExit.y}
+					x2={outEnd.x}
+					y2={outEnd.y}
+					stroke={colour}
+					strokeWidth="0.02"
+				/>
+			)}
+		</g>
+	);
+});
+
+// ---------- main ----------
 const Task12 = () => {
 	const theme = useTheme();
+
+	// Controls: α (apex) and θᵢ (to left-face TOP-LEFT normal)
 	const [apexAngle, setApexAngle] = useState(60);
-	const [incidenceAngle, setIncidenceAngle] = useState(48);
+	const [incidenceAngle, setIncidenceAngle] = useState(40);
 
-	const { rayPaths, tirOccurred, prismPoints } = useMemo(() => {
-		const alpha_rad = (apexAngle * Math.PI) / 180;
-		const prismHeight = 1.0;
-		const prismHalfBase = Math.tan(alpha_rad / 2) * prismHeight;
-		const p_top = { x: 0, y: prismHeight / 2 };
-		const p_left = { x: -prismHalfBase, y: -prismHeight / 2 };
-		const p_right = { x: prismHalfBase, y: -prismHeight / 2 };
+	// Build prism geometry
+	const prism = useMemo(() => buildPrism(apexAngle, 1.0), [apexAngle]);
 
+	// Trace a white beam: sample many frequencies, compute n(λ), refract through prism.
+	const { rays, tirAny } = useMemo(() => {
 		const paths = [];
-		let tir = false;
+		let tirFlag = false;
 
-		for (let i = 0; i < 100; i++) {
-			const freq = 405 + (i / 99) * (790 - 405);
-			const wavelength = 299792.458 / freq;
-			const n = getCrownGlassRefractiveIndex(wavelength);
-			const result = calculatePrismPath(incidenceAngle, apexAngle, n);
+		for (let i = 0; i < 150; i++) {
+			const fTHz = 405 + (i / 149) * (790 - 405); // THz
+			const lambda_um = 299792.458 / fTHz; // μm
+			const n = getCrownGlassRefractiveIndex(lambda_um); // expects μm
+			if (!isFinite(n) || n <= 1) continue;
 
-			if (result.tir) {
-				tir = true;
-			} else {
-				paths.push({ ...result, color: frequencyToColor(freq) });
-			}
+			const segs = tracePrismRay({
+				prism,
+				incidenceAngleDeg: incidenceAngle,
+				nGlass: n,
+				extent: 3.0, // long enough to ensure an obvious right-going exit
+			});
+
+			tirFlag = tirFlag || !!segs.tir;
+			paths.push({ colour: frequencyToColor(fTHz), segs });
 		}
-		return {
-			rayPaths: paths,
-			tirOccurred: tir,
-			prismPoints: [p_left, p_top, p_right],
-		};
-	}, [apexAngle, incidenceAngle]);
+
+		return { rays: paths, tirAny: tirFlag };
+	}, [apexAngle, incidenceAngle, prism]);
 
 	return (
 		<TaskContainer>
@@ -104,7 +167,7 @@ const Task12 = () => {
 			<TwoColumnLayout>
 				<ControlAndVizContainer>
 					<h3 style={{ marginBottom: "1rem" }}>
-						Prism & Light Source Controls
+						Prism &amp; Light Source Controls
 					</h3>
 					<Slider
 						label="Prism Apex Angle (α)"
@@ -118,9 +181,9 @@ const Task12 = () => {
 						unit="°"
 					/>
 					<Slider
-						label="Angle of Incidence (θi)"
+						label="Angle of Incidence (θᵢ to left-face normal ↑↖)"
 						min={0}
-						max={90}
+						max={85}
 						step={1}
 						value={incidenceAngle}
 						onChange={(e) =>
@@ -128,162 +191,52 @@ const Task12 = () => {
 						}
 						unit="°"
 					/>
-					{tirOccurred && (
+					{tirAny && (
 						<WarningText>
-							Total Internal Reflection! Some or all of the light
-							cannot exit the prism.
+							Total internal reflection occurs for some
+							wavelengths – those rays do not exit the prism.
 						</WarningText>
 					)}
 				</ControlAndVizContainer>
 
 				<ControlAndVizContainer>
-					<PrismSVG viewBox="-1.5 -1.5 3 3">
-						<g transform="rotate(-90)">
-							<Prism prismPoints={prismPoints} theme={theme} />
-							{rayPaths.map((path, i) => (
+					{/* y-up maths drawn with a single flip; wide viewBox so the right-origin beam is obvious */}
+					<PrismSVG
+						viewBox="-3.2 -1.8 6.8 3.6"
+						preserveAspectRatio="xMidYMid meet">
+						<g transform="scale(1,-1)">
+							<PrismShape prism={prism} theme={theme} />
+							{rays.map((r, idx) => (
 								<Ray
-									key={i}
-									path={path}
-									apexAngle={apexAngle}
-									prismPoints={prismPoints}
+									key={idx}
+									segs={r.segs}
+									colour={r.colour}
 									theme={theme}
-									isWhiteRay={i === 0}
+									showIncident={idx === 0}
 								/>
 							))}
 						</g>
 					</PrismSVG>
 				</ControlAndVizContainer>
 			</TwoColumnLayout>
+
 			<SummaryContainer>
 				<SummaryTitle>
 					Analysis: Dispersion through a Prism
 				</SummaryTitle>
 				<p>
-					This simulation models what happens when a beam of white
-					light, composed of many colors, passes through a glass
-					prism. The phenomenon is called <strong>dispersion</strong>.
+					θᵢ is measured from the left-face normal that points towards
+					the top-left, as requested. The incident beam is constructed
+					so its source lies to the right of the prism, guaranteeing a
+					right-origin, left-incident ray. Refraction at both
+					interfaces uses Snell’s law with the normal automatically
+					oriented into the incident medium to prevent sign mistakes.
+					Colours fan out at the exit because the crown-glass
+					refractive index increases slightly from red to violet.
 				</p>
-				<ul>
-					<li>
-						<strong>Refraction:</strong> As light enters the prism,
-						it slows down and bends (refracts). It bends again when
-						it exits. The amount of bending is determined by Snell's
-						Law and the prism's refractive index.
-					</li>
-					<li>
-						<strong>Dispersion:</strong> The refractive index of
-						glass is slightly different for each color of light (as
-						seen in Task 1). Violet light (higher frequency) has a
-						higher refractive index and therefore bends *more* than
-						red light (lower frequency). This difference in bending
-						causes the white light to split into its constituent
-						colors, forming a spectrum.
-					</li>
-					<li>
-						<strong>Total Internal Reflection (TIR):</strong> Under
-						certain conditions (typically a large apex angle and a
-						shallow angle of incidence), the light ray may strike
-						the second internal face of the prism at an angle so
-						great that it cannot exit, and is reflected internally
-						instead. When this happens, no rainbow is formed on the
-						exit side.
-					</li>
-				</ul>
 			</SummaryContainer>
 		</TaskContainer>
 	);
 };
-
-const Prism = React.memo(({ prismPoints, theme }) => {
-	const { p_left, p_top, p_right } = prismPoints;
-	return (
-		<path
-			d={`M ${p_left.x} ${p_left.y} L ${p_top.x} ${p_top.y} L ${p_right.x} ${p_right.y} Z`}
-			fill={theme.primary}
-			fillOpacity="0.1"
-			stroke={theme.line}
-			strokeWidth="0.02"
-		/>
-	);
-});
-
-const Ray = React.memo(
-	({ path, apexAngle, prismPoints, theme, isWhiteRay }) => {
-		const { theta_i_deg, beta_deg, theta_t_deg } = path;
-		const { p_left, p_top, p_right } = prismPoints;
-
-		// Convert all angles to radians for calculation
-		const theta_i_rad = (theta_i_deg * Math.PI) / 180;
-		const beta_rad = (beta_deg * Math.PI) / 180;
-		const theta_t_rad = (theta_t_deg * Math.PI) / 180;
-		const alpha_rad = (apexAngle * Math.PI) / 180;
-
-		// 1. Calculate entry point by intersecting incident ray with left face of prism
-		const m_left_face = (p_top.y - p_left.y) / (p_top.x - p_left.x);
-		const c_left_face = p_top.y - m_left_face * p_top.x;
-		const m_incident = Math.tan(theta_i_rad);
-		const c_incident = 0; // Ray passes through origin of local coordinate system
-		const entryX = (c_left_face - c_incident) / (m_incident - m_left_face);
-		const entryY = m_incident * entryX + c_incident;
-
-		// Ray source point (for visualization)
-		const sourcePoint = {
-			x: entryX - 2 * Math.cos(theta_i_rad),
-			y: entryY - 2 * Math.sin(theta_i_rad),
-		};
-
-		// 2. Calculate exit point by intersecting internal ray with right face
-		const internalAngle = beta_rad - alpha_rad / 2;
-		const m_internal = Math.tan(internalAngle);
-		const c_internal = entryY - m_internal * entryX;
-		const m_right_face = (p_right.y - p_top.y) / (p_right.x - p_top.x);
-		const c_right_face = p_top.y - m_right_face * p_top.x;
-		const exitX = (c_right_face - c_internal) / (m_internal - m_right_face);
-		const exitY = m_internal * exitX + c_internal;
-
-		// 3. Calculate final end point of the exiting ray
-		const exitAngle = theta_t_rad - alpha_rad / 2;
-		const endPoint = {
-			x: exitX + 2 * Math.cos(exitAngle),
-			y: exitY + 2 * Math.sin(exitAngle),
-		};
-
-		// This check prevents "impossible" rays from drawing if calculations are at an edge case
-		if (isNaN(exitX) || isNaN(exitY)) return null;
-
-		return (
-			<g transform={`rotate(${90 - apexAngle / 2})`}>
-				{" "}
-				{/* Rotate entire system for correct orientation */}
-				{isWhiteRay && (
-					<line
-						x1={sourcePoint.x}
-						y1={sourcePoint.y}
-						x2={entryX}
-						y2={entryY}
-						stroke={theme.text}
-						strokeWidth="0.02"
-					/>
-				)}
-				<line
-					x1={entryX}
-					y1={entryY}
-					x2={exitX}
-					y2={exitY}
-					stroke={path.color}
-					strokeWidth="0.005"
-				/>
-				<line
-					x1={exitX}
-					y1={exitY}
-					x2={endPoint.x}
-					y2={endPoint.y}
-					stroke={path.color}
-					strokeWidth="0.01"
-				/>
-			</g>
-		);
-	},
-);
 
 export default Task12;

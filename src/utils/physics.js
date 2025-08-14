@@ -105,13 +105,56 @@ export const thinLensTransform = (point, f) => {
 	return { x: x_image, y: y_image };
 };
 
-/**
- * [NEW] Calculates the transformed coordinates for a real image from a converging lens.
- * Valid for objects placed outside the focal length (x > f).
- * @param {object} point - The point on the object, { x, y }.
- * @param {number} f - The focal length of the lens.
- * @returns {object} The transformed point { x, y }.
- */
+export const concaveMirrorTransform = (point, R) => {
+	const { x: u, y } = point;
+	const f = R / 2;
+
+	if (u === f || u <= 0) {
+		return { x: NaN, y: NaN };
+	}
+
+	// 1. Calculate image distance 'v' using the Mirror Equation: 1/v = 1/f - 1/u
+	const v = 1 / (1 / f - 1 / u);
+
+	// 2. Calculate magnification: M = -v/u
+	const M = -v / u;
+	const y_image = y * M;
+
+	return { x: v, y: y_image };
+};
+
+export const concaveMirrorPixelTransform = (point, R) => {
+	const a = point.x;
+	const b = point.y;
+
+	// 1. Ray from (a,b) travels horizontally left. Intersection yi = b.
+	// Clamp to mirror aperture to prevent sqrt of negative.
+	const yi = Math.max(-R + 1e-6, Math.min(R - 1e-6, b));
+	const xi_squared = R * R - yi * yi;
+	if (xi_squared < 0) return { x: NaN, y: NaN };
+	const xi = -Math.sqrt(xi_squared); // Use left arc
+
+	// 2. Reflect incident direction d_in = (-1, 0) about unit normal n̂ = (xi/R, yi/R)
+	const nx = xi / R;
+	const ny = yi / R;
+	const din_dot_n = -nx; // d_in.x * nx + d_in.y * ny = -1 * nx + 0 * ny
+
+	const dout_x = -1 - 2 * din_dot_n * nx;
+	const dout_y = 0 - 2 * din_dot_n * ny;
+
+	// If reflected ray doesn't travel right, it won't intersect the plane x=a.
+	if (dout_x < 1e-9) return { x: NaN, y: NaN };
+
+	// 3. Find intersection of reflected ray with the object plane x=a
+	// Ray: P(t) = (xi, yi) + t * (dout_x, dout_y). We want P(t).x = a.
+	// xi + t * dout_x = a  =>  t = (a - xi) / dout_x
+	const t = (a - xi) / dout_x;
+	const A = a; // By definition, it's in the object plane
+	const B = yi + t * dout_y;
+
+	return { x: A, y: B };
+};
+
 export const convergingLensRealImage = (point, f) => {
 	const { x, y } = point;
 
@@ -234,39 +277,36 @@ export const convexMirrorVirtualImage = (point, R) => {
 
 	return { x: trans_X, y: trans_Y };
 };
-
-/**
- * [NEW] Performs an anamorphic transformation on a point.
- * Maps a point from a unit circle to a sector of a circle with radius Rf.
- * @param {object} point - The point on the object, { x, y }, where -1 <= x,y <= 1.
- * @param {number} Rf - The radius of the target sector.
- * @param {number} arc_deg - The total angle of the target sector in degrees.
- * @returns {object} The transformed point { x, y }.
- */
 export const anamorphicTransform = (point, Rf, arc_deg) => {
 	const { x, y } = point;
 
-	// 1. Convert cartesian coordinates (x, y) to polar coordinates (r, theta)
-	const r = Math.sqrt(x ** 2 + y ** 2);
-
-	// If the point is outside the unit circle, don't draw it
-	if (r > 1) {
+	// 1. Check if the point is within the source unit circle
+	if (x ** 2 + y ** 2 > 1) {
 		return { x: NaN, y: NaN };
 	}
 
-	const theta = Math.atan2(y, x); // Angle in radians
+	// 2. Map the object's local coordinates to the new polar coordinates
+	// The new radius is proportional to the original y-coordinate.
+	// We map y from [-1, 1] to a radius [0, 2*Rf] based at the center of the arc.
+	// The document shows the arc centered at the base of the object, so we adjust.
+	// Let's use a simpler, direct mapping from the diagram:
+	// Original X maps to Angle. Original Y maps to Radius.
 
-	// 2. Map polar coordinates to the new anamorphic coordinate system
-	// The new radius (in the transformed system) is based on the original y-coordinate
-	const new_r = Rf * (1 + y);
-
-	// The new angle is based on the original x-coordinate, scaled by the arc angle
 	const arc_rad = arc_deg * (Math.PI / 180);
-	const new_theta = (Math.PI - arc_rad) / 2 + (arc_rad * (x + 1)) / 2;
 
-	// 3. Convert the new polar coordinates back to cartesian for drawing
-	const trans_X = new_r * Math.cos(new_theta);
-	const trans_Y = new_r * Math.sin(new_theta);
+	// Map x from [-1, 1] to an angle from [-arc_rad/2, +arc_rad/2]
+	const theta = x * (arc_rad / 2);
+
+	// Map y from [-1, 1] to a radius from [Rf, Rf + objectHeight]
+	// Let's assume the "red star" base is at Rf and the object has a height proportional to Rf.
+	// A more direct interpretation from the visual is that the y-coordinate maps to the radius.
+	// y=-1 -> R = 0. y=1 -> R = Rf. So, R = Rf * (y+1)/2
+	const r = (Rf * (y + 1)) / 2;
+
+	// 3. Convert the new polar coordinates back to cartesian for drawing.
+	// We add PI/2 to rotate the arc to be upright.
+	const trans_X = r * Math.sin(theta);
+	const trans_Y = r * Math.cos(theta);
 
 	return { x: trans_X, y: trans_Y };
 };

@@ -4,9 +4,9 @@ import styled, { useTheme } from "styled-components";
 import { motion } from "framer-motion";
 import Slider from "../components/Slider";
 import ImageTransformViewer from "../components/ImageTransformViewer";
-import { convexMirrorVirtualImage } from "../utils/physics";
+import { convexMirrorPixelTransform } from "../utils/task9_physics";
 
-// --- Styled Components ---
+// --- Styled Components (consistent with other tasks) ---
 const TaskContainer = styled(motion.div)``;
 
 const Title = styled.h2`
@@ -51,33 +51,40 @@ const SummaryTitle = styled.h3`
 	color: ${({ theme }) => theme.primary};
 `;
 
+const Equation = styled.div`
+	margin: 1rem 0;
+	padding: 1rem;
+	background: ${({ theme }) => theme.body};
+	border-radius: 6px;
+	text-align: center;
+	font-family: "Courier New", Courier, monospace;
+	font-size: 1.1rem;
+	overflow-x: auto;
+`;
+
 const Task9 = () => {
 	const theme = useTheme();
-	const [objectX, setObjectX] = useState(1.0);
-	const [objectY, setObjectY] = useState(0.5);
-	const [objectWidth, setObjectWidth] = useState(0.5);
+
+	// Default values chosen so the result resembles the sheet (object on y≈0).
+	const [objectX, setObjectX] = useState(1.8);
+	const [objectY, setObjectY] = useState(0.0);
+	const [objectWidth, setObjectWidth] = useState(0.8);
 	const [mirrorRadius, setMirrorRadius] = useState(1.0);
 
 	const mirrorTransform = useCallback(
-		(point) => {
-			return convexMirrorVirtualImage(point, mirrorRadius);
-		},
+		(point) => convexMirrorPixelTransform(point, mirrorRadius),
 		[mirrorRadius],
 	);
 
+	// Mirror: draw LEFT semicircle so the edge points RIGHT (as in the BPhO sheet).
 	const convexMirror = {
 		draw: (ctx, scale, originX, originY) => {
 			ctx.strokeStyle = theme.primary;
-			ctx.lineWidth = 3;
+			ctx.lineWidth = 4;
 			ctx.beginPath();
-			// An arc centered on the right, creating a convex shape on the left
-			ctx.arc(
-				originX + mirrorRadius * scale,
-				originY,
-				mirrorRadius * scale,
-				Math.PI - Math.PI / 2.5,
-				Math.PI + Math.PI / 2.5,
-			);
+			const r = mirrorRadius * scale;
+			// Canvas is y-down; to draw the LEFT arc we go from +π/2 to -π/2 anticlockwise.
+			ctx.arc(originX, originY, r, Math.PI / 2, -Math.PI / 2, true);
 			ctx.stroke();
 		},
 	};
@@ -85,16 +92,16 @@ const Task9 = () => {
 	return (
 		<TaskContainer>
 			<Title>Task 9: Virtual Image from a Convex Spherical Mirror</Title>
-
 			<TwoColumnLayout>
 				<ControlAndVizContainer>
 					<h3 style={{ marginBottom: "1rem" }}>
-						Mirror & Object Controls
+						Mirror &amp; Object Controls
 					</h3>
+
 					<Slider
 						label="Mirror Radius (R)"
 						min={0.5}
-						max={2.0}
+						max={1.25}
 						step={0.05}
 						value={mirrorRadius}
 						onChange={(e) =>
@@ -102,24 +109,27 @@ const Task9 = () => {
 						}
 						unit="m"
 					/>
+
 					<Slider
 						label="Object X Position"
-						min={0.1}
+						min={1}
 						max={2.0}
 						step={0.01}
 						value={objectX}
 						onChange={(e) => setObjectX(parseFloat(e.target.value))}
 						unit="m"
 					/>
+
 					<Slider
 						label="Object Y Position"
-						min={-1.5}
-						max={1.5}
+						min={-1}
+						max={1}
 						step={0.01}
 						value={objectY}
 						onChange={(e) => setObjectY(parseFloat(e.target.value))}
 						unit="m"
 					/>
+
 					<Slider
 						label="Object Size"
 						min={0.1}
@@ -147,40 +157,28 @@ const Task9 = () => {
 					Analysis: Convex Mirror Virtual Image
 				</SummaryTitle>
 				<p>
-					This simulation models the image formed by a convex mirror,
-					often seen in security applications or on car passenger-side
-					mirrors. These mirrors bulge outwards, providing a wider
-					field of view.
+					This model applies the closed-form mapping from the BPhO
+					sheet to each source pixel. The convex surface causes rays
+					to diverge; the backward extensions intersect at a{" "}
+					<em>virtual</em> point behind the mirror.
 				</p>
-				<p>
-					The image is generated using the coordinate transformations
-					for convex spherical reflection. It has the following key
-					characteristics:
-				</p>
+				<Equation>
+					Image (X,Y) = Transform(Object (x,y), Radius R)
+				</Equation>
 				<ul>
 					<li>
-						<strong>Virtual:</strong> The image appears to be
-						located *behind* the mirror surface. The light rays only
-						appear to diverge from this point.
+						<strong>Virtual:</strong> Appears behind the mirror
+						(inside the arc).
 					</li>
 					<li>
-						<strong>Upright:</strong> The image has the same
-						orientation as the object.
+						<strong>Upright:</strong> Sign(Y) = Sign(y); radial
+						alignment preserved.
 					</li>
 					<li>
-						<strong>Minified & Distorted:</strong> The image is
-						smaller than the object and becomes more distorted
-						("fish-eye" effect) as the object gets closer to the
-						mirror. This minification allows the mirror to reflect a
-						much wider area.
+						<strong>Minified &amp; Distorted:</strong> Magnitude
+						shrinks; distortion rises near the rim.
 					</li>
 				</ul>
-				<p>
-					Use the sliders to manipulate the object's position and the
-					mirror's curvature to see how the virtual image changes.
-					Notice that the image is always upright and smaller than the
-					object.
-				</p>
 			</SummaryContainer>
 		</TaskContainer>
 	);
