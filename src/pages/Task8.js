@@ -1,5 +1,5 @@
 // src/pages/Task8.js
-import React, { useState, useCallback, useMemo } from "react";
+import React, { useState, useCallback } from "react";
 import styled, { useTheme } from "styled-components";
 import { motion } from "framer-motion";
 import Slider from "../components/Slider";

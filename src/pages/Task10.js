@@ -50,17 +50,6 @@ const SummaryTitle = styled.h3`
 	color: ${({ theme }) => theme.primary};
 `;
 
-const Equation = styled.div`
-	margin: 1rem 0;
-	padding: 1rem;
-	background: ${({ theme }) => theme.body};
-	border-radius: 6px;
-	text-align: center;
-	font-family: "Courier New", Courier, monospace;
-	font-size: 1.1rem;
-	overflow-x: auto;
-`;
-
 const Canvas = styled.canvas`
 	width: 100%;
 	height: 100%;
