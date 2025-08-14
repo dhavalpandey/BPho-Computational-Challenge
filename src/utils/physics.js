@@ -225,18 +225,6 @@ export const concaveMirrorRealImage = (point, R) => {
 
 	// Xi = - (mi * sqrt(R² - yi²) - yi) / (yi/xi + mi)
 	const trans_X = -(mi * Math.sqrt(R ** 2 - yi ** 2) - yi) / denominator;
-
-	// Yi = (yi * mi * sqrt(R² - yi²) - yi) / (yi/xi + mi)
-	const trans_Y =
-		(yi * mi * Math.sqrt(R ** 2 - yi ** 2) - yi ** 2 / xi) / denominator;
-
-	// The formula in the document seems to have a typo for Yi.
-	// A more standard ray-tracing derivation gives:
-	const simpler_trans_Y = (trans_X / xi) * yi;
-	// Let's stick to the document's direct formula, but be aware of potential issues.
-	// After testing, the document's formula for Yi seems incorrect.
-	// The simpler magnification-based formula provides a more coherent image.
-	// We will use the coherent version for a better result.
 	const final_trans_Y = (trans_X / xi) * yi;
 
 	return { x: trans_X, y: final_trans_Y };

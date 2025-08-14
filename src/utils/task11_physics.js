@@ -1,4 +1,3 @@
-const RAD = Math.PI / 180;
 const DEG = 180 / Math.PI;
 
 // Safe asin for [−1,1]

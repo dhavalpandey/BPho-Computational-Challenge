@@ -99,7 +99,7 @@ export function tracePrismRay({
 	nGlass,
 	extent = 2.6,
 }) {
-	const { faces, tangents, n_left_topLeft, H } = prism;
+	const { faces, tangents, n_left_topLeft } = prism;
 	const LEFT = 0,
 		RIGHT = 1,
 		BASE = 2;

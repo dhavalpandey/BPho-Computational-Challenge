@@ -681,18 +681,6 @@ const View11d = () => {
 		ctx.moveTo(0, horizonY + 0.5);
 		ctx.lineTo(W, horizonY + 0.5);
 		ctx.stroke();
-
-		// Labels at the bow apices (optional but helpful to verify both bows)
-		const label = (text, epsDeg, yOffset = -8) => {
-			if (!visible(epsDeg)) return;
-			const r = toRadiusPx(epsDeg);
-			if (!r) return;
-			ctx.fillStyle = theme.text;
-			ctx.font = `12px ${theme.font || "system-ui"}`;
-			ctx.textAlign = "center";
-			// Apex (top) of a circle about (cx, cy) is at angle -π/2 → (cx, cy - r)
-			ctx.fillText(text, cx, cy - r + yOffset);
-		};
 	}, [solarElevation, theme]);
 
 	useEffect(() => {

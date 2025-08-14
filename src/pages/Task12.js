@@ -159,7 +159,7 @@ const Task12 = () => {
 		}
 
 		return { rays: paths, tirAny: tirFlag };
-	}, [apexAngle, incidenceAngle, prism]);
+	}, [incidenceAngle, prism]);
 
 	return (
 		<TaskContainer>
