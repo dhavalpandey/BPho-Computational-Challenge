@@ -304,7 +304,7 @@ const Task10 = () => {
 			</TwoColumnLayout>
 
 			<SummaryContainer>
-				<SummaryTitle>Analysis: Unit Disc → Annular Arc</SummaryTitle>
+				<SummaryTitle>Analysis: Anamorphic Image</SummaryTitle>
 				<p>
 					The entire unit-disc image is re-expressed in polar form (ρ,
 					φ) and stretched into the annulus sector between a small
@@ -313,12 +313,6 @@ const Task10 = () => {
 					hole; placing a polished cylinder over the original disc
 					reconstructs the image with a three-dimensional appearance.
 				</p>
-				<Equation>
-					r′ = R<sub>in</sub> + (R<sub>f</sub> − R<sub>in</sub>
-					)ρ,&nbsp; θ′ = −Δ/2 + Δ(φ + π)/(2π),&nbsp; (X,Y) = (r′cosθ′,
-					r′sinθ′), &nbsp;with&nbsp; R<sub>in</sub> = τ R<sub>f</sub>,
-					τ = 0.35.
-				</Equation>
 			</SummaryContainer>
 		</TaskContainer>
 	);

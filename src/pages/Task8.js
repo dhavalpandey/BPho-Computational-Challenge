@@ -58,9 +58,9 @@ const Equation = styled.div`
 const Task8 = () => {
 	const theme = useTheme();
 	const [objectX, setObjectX] = useState(0.3);
-	const [objectY, setObjectY] = useState(0.4);
+	const [objectY, setObjectY] = useState(-0.4);
 	const [objectWidth, setObjectWidth] = useState(0.2);
-	const [mirrorRadius, setMirrorRadius] = useState(1.0);
+	const [mirrorRadius, setMirrorRadius] = useState(1.35);
 
 	const mirrorTransform = useCallback(
 		(point) => {

@@ -60,10 +60,10 @@ const Equation = styled.div`...`; // Unchanged
 
 const Task7 = () => {
 	const theme = useTheme();
-	const [objectX, setObjectX] = useState(0.5);
-	const [objectY, setObjectY] = useState(0.5);
-	const [objectWidth, setObjectWidth] = useState(0.5);
-	const [focalLength, setFocalLength] = useState(1.0);
+	const [objectX, setObjectX] = useState(0.65);
+	const [objectY, setObjectY] = useState(0);
+	const [objectWidth, setObjectWidth] = useState(0.25);
+	const [focalLength, setFocalLength] = useState(1.05);
 
 	const lensTransform = useCallback(
 		(point) => {
